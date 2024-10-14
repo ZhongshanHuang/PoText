@@ -72,7 +72,7 @@ class CustomTailTruncationTokenViewController: ExampleBaseViewController {
         }
         tokenAttributesContainer.textHighlight = hi
         let tokenText = NSMutableAttributedString(attributeContainer: tokenAttributesContainer) {
-            "...".po.asAttributedString()
+            String(unicodeScalarLiteral: "\u{2026}").po.asAttributedString()
                 .foregroundColor(.black)
             "more".po.asAttributedString()
                 .foregroundColor(UIColor(red: 0, green: 0.449, blue: 1, alpha: 1))

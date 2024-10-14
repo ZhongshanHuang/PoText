@@ -152,7 +152,7 @@ class AttachmentViewController: ExampleBaseViewController {
     
     private func addSeeMoreButton() {
         
-        let text = NSMutableAttributedString(string: "...more")
+        let text = NSMutableAttributedString(string: "\(String(unicodeScalarLiteral: "\u{2026}"))more")
         
         var hi = TextHighlight()
         hi.foregroundColor = UIColor(red: 0.578, green: 0.79, blue: 1, alpha: 1)

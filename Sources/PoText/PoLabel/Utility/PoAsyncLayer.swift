@@ -51,7 +51,6 @@ final class PoAsyncLayer: CALayer, @unchecked Sendable {
     }
         
     override class func defaultAction(forKey event: String) -> (any CAAction)? {
-        // Suppress default animation of opacity when adding comment bubbles.
         return NSNull()
     }
     

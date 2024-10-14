@@ -1,9 +1,3 @@
-//
-//  PoAttributedStringKey.swift
-//
-//
-
-import Foundation
 import UIKit
 
 // MARK: - PoAttributedStringKey

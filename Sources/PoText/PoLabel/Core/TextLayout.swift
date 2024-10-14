@@ -44,6 +44,7 @@ extension TextLayout {
         }
         
         public let type: TruncationType
+        /// 如果Truncation大于当前布局行的宽度，则characterRange不准确
         public let characterRange: NSRange
         public let token: NSAttributedString
     }

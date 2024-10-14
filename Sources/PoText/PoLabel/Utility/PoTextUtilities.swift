@@ -130,56 +130,32 @@ extension CGFloat {
     
     /// convert degrees to radians
     var toRadians: CGFloat {
-        return self * .pi / 180
+        self * .pi / 180
     }
     
     /// convert radians to degrees
     var toDegrees: CGFloat {
-        return self * 180 / .pi
+        self * 180 / .pi
     }
 }
 
 extension CGPoint {
     
     var pixelFloor: CGPoint {
-        return CGPoint(x: floor(self.x * poScale) / poScale, y: floor(self.y * poScale) / poScale)
+        CGPoint(x: floor(self.x * poScale) / poScale, y: floor(self.y * poScale) / poScale)
     }
     
     var pixelRound: CGPoint {
-        return CGPoint(x: round(self.x * poScale) / poScale, y: round(self.y * poScale) / poScale)
+        CGPoint(x: round(self.x * poScale) / poScale, y: round(self.y * poScale) / poScale)
     }
     
     var pixelCeil: CGPoint {
-        return CGPoint(x: ceil(self.x * poScale) / poScale, y: ceil(self.y * poScale) / poScale)
+        CGPoint(x: ceil(self.x * poScale) / poScale, y: ceil(self.y * poScale) / poScale)
     }
 
     
     var pixelHalf: CGPoint {
-        return CGPoint(x: (floor(self.x * poScale) + 0.5) / poScale, y: (floor(self.y * poScale) + 0.5) / poScale)
-    }
-    
-    func distance(to point: CGPoint) -> CGFloat {
-        return sqrt((point.x - self.x) * (point.x - self.x) + (point.y - self.y) * (point.y - self.y))
-    }
-    
-    func distance(to rect: CGRect) -> CGFloat {
-        let rect = rect.standardized
-        if rect.contains(self) { return 0 }
-        var distV: CGFloat = 0
-        var distH: CGFloat = 0
-        if self.y < rect.minY {
-            distV = rect.minY - self.y
-        } else if self.y > rect.maxY {
-            distV = self.y - rect.maxY
-        }
-        
-        if self.x < rect.minX {
-            distH = rect.minX - self.x
-        } else if self.x > rect.maxX {
-            distH = self.x - rect.maxX
-        }
-        
-        return max(distV, distH)
+        CGPoint(x: (floor(self.x * poScale) + 0.5) / poScale, y: (floor(self.y * poScale) + 0.5) / poScale)
     }
 
 }
@@ -187,19 +163,19 @@ extension CGPoint {
 extension CGSize {
     
     var pixelFloor: CGSize {
-        return CGSize(width: floor(self.width * poScale) / poScale, height: floor(self.height * poScale) / poScale)
+        CGSize(width: floor(self.width * poScale) / poScale, height: floor(self.height * poScale) / poScale)
     }
     
     var pixelRound: CGSize {
-        return CGSize(width: round(self.width * poScale) / poScale, height: round(self.height * poScale) / poScale)
+        CGSize(width: round(self.width * poScale) / poScale, height: round(self.height * poScale) / poScale)
     }
     
     var pixelCeil: CGSize {
-        return CGSize(width: ceil(self.width * poScale) / poScale, height: ceil(self.height * poScale) / poScale)
+        CGSize(width: ceil(self.width * poScale) / poScale, height: ceil(self.height * poScale) / poScale)
     }
     
     var pixelHalf: CGSize {
-        return CGSize(width: (floor(self.width * poScale) + 0.5) / poScale, height: (floor(self.height * poScale) + 0.5) / poScale)
+        CGSize(width: (floor(self.width * poScale) + 0.5) / poScale, height: (floor(self.height * poScale) + 0.5) / poScale)
     }
 }
 
@@ -301,12 +277,12 @@ extension CGRect {
     }
     
     var center: CGPoint {
-        return CGPoint(x: self.midX, y: self.midY)
+        CGPoint(x: midX, y: midY)
     }
     
     var area: CGFloat {
         if self.isNull { return 0 }
-        let rect = self.standardized
+        let rect = standardized
         return rect.width * rect.height
     }
 }
