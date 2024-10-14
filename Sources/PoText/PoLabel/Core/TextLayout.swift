@@ -126,11 +126,15 @@ public final class TextLayout: @unchecked Sendable {
             guard let attachment = attachment as? TextAttachment else { return }
             let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
             var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-            if  !isInLastLine(for: range.location),
+            let location = layoutManager.location(forGlyphAt: glyphRange.location)
+            if !isInLastLine(for: range.location),
                 let paragraphStyle = textStorage.attribute(.paragraphStyle, at: range.location, effectiveRange: nil) as? NSParagraphStyle,
                paragraphStyle.lineSpacing > .leastNonzeroMagnitude {
                 rect.size.height -= paragraphStyle.lineSpacing
             }
+            rect.origin.y += location.y
+            rect.origin.y -= attachment.bounds.height
+            rect.size.height = attachment.bounds.height
             attachmentInfos[attachment] = rect
         }
     }

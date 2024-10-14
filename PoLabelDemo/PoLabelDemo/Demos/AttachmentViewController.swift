@@ -168,7 +168,7 @@ class AttachmentViewController: ExampleBaseViewController {
         seeMore.attributedText = text
         seeMore.sizeToFit()
         
-        let truncationToken = NSMutableAttributedString.po.attachmentString(with: .view(seeMore), size: seeMore.size, alignToFont: text.po.font!, verticalAlignment: .bottom)
+        let truncationToken = NSMutableAttributedString.po.attachmentString(with: .view(seeMore), size: seeMore.size, alignToFont: text.po.font!, verticalAlignment: .center)
         label.tailTruncationToken = truncationToken
     }
     
