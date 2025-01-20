@@ -10,7 +10,7 @@ import PoText
 
 class ViewController: UIViewController {
     
-    var tableView: UITableView = UITableView(frame: .zero, style: .plain)
+    let tableView: UITableView = UITableView(frame: .zero, style: .plain)
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -44,7 +44,7 @@ extension ViewController: UITableViewDataSource, UITableViewDelegate {
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        var vc: UIViewController!
+        let vc: UIViewController
         let type = DemoType.allCases[indexPath.row]
         switch type {
         case .highlight:

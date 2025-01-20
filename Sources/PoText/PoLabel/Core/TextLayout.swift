@@ -78,15 +78,19 @@ public final class TextLayout: @unchecked Sendable {
     var blockBorderInfos: [TextBorder: [CGRect]] = [:]
     
     public init(attributedString: NSAttributedString, container: TextContainer) {
-        self.textStorage = NSTextStorage(attributedString: attributedString)
+        self.textStorage = NSTextStorage()
         self.containter = container
         self.textContainer = container.asNSTextContainer
         self.layoutManager = NSLayoutManager()
         
         layoutManager.usesFontLeading = false
-        layoutManager.addTextContainer(textContainer)
-        textStorage.po.lineBreakMode = textContainer.lineBreakMode
         textStorage.addLayoutManager(layoutManager)
+        
+        // Instead of calling [NSTextStorage initWithAttributedString:], setting attributedString just after calling addlayoutManager can fix CJK language layout issues.
+        // See https://github.com/facebook/AsyncDisplayKit/issues/2894
+        textStorage.setAttributedString(attributedString)
+        textStorage.po.lineBreakMode = textContainer.lineBreakMode
+        layoutManager.addTextContainer(textContainer)
         
         guard attributedString.length > 0 else { return }
         
