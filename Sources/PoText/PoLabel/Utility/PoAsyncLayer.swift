@@ -6,6 +6,7 @@ protocol PoAsyncLayerDelegate: CALayerDelegate {
     func asyncLayerPrepareForRenderCtx() -> PoAsyncLayerRenderCtx
     @MainActor
     func asyncLayerWillDisplay(_ layer: CALayer, renderCtx: PoAsyncLayerRenderCtx)
+    nonisolated
     func asyncLayerDisplay(renderCtx: PoAsyncLayerRenderCtx, context: CGContext, size: CGSize, isCancelled: @escaping () -> Bool)
     @MainActor
     func asyncLayerDidDisplay(_ layer: CALayer, renderCtx: PoAsyncLayerRenderCtx, finished: Bool)
@@ -35,6 +36,7 @@ final class PoAsyncLayerRenderCtx: @unchecked Sendable {
     }
 }
 
+@preconcurrency
 final class PoAsyncLayer: CALayer, @unchecked Sendable {
     
     // MARK: - Properties - [public]
@@ -118,6 +120,9 @@ final class PoAsyncLayer: CALayer, @unchecked Sendable {
         
     }
     
+#if swift(>=6.1)
+    @concurrent
+#endif
     private func drawDisplay(asyncDelegate: any PoAsyncLayerDelegate, renderCtx: PoAsyncLayerRenderCtx, inSize size: CGSize, isCancelled: @escaping () -> Bool) async -> UIImage? {
         if isCancelled() { return nil }
 
