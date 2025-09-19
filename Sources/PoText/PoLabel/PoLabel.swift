@@ -295,7 +295,7 @@ public final class PoLabel: UIView {
     
     /// A Boolean value indicating whether the layout and rendering codes are running asynchronously on back background threads.
     public var isDisplayedAsynchronously: Bool = true {
-        didSet { (layer as! PoAsyncLayer).isDispalyedsAsynchronously = isDisplayedAsynchronously }
+        didSet { (layer as! PoAsyncLayer).isDisplayedAsynchronously = isDisplayedAsynchronously }
     }
     
     /// If the value is true, and the layer is rendered asynchronously, then it will set label.layer.contents to nil before display.

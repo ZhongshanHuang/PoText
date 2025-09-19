@@ -37,7 +37,7 @@ final class PoAsyncLayerRenderCtx: @unchecked Sendable {
 final class PoAsyncLayer: CALayer, @unchecked Sendable {
     
     // MARK: - Properties - [public]
-    var isDispalyedsAsynchronously: Bool = true
+    var isDisplayedAsynchronously: Bool = true
     
     // MARK: - Methods - [override]
         
@@ -61,7 +61,7 @@ final class PoAsyncLayer: CALayer, @unchecked Sendable {
     override func display() {
         super.contents = super.contents
         MainActor.assumeIsolated {
-            displayAsync(isDispalyedsAsynchronously)
+            displayAsync(isDisplayedAsynchronously)
         }
     }
     
