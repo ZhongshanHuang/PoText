@@ -33,7 +33,6 @@ final class PoAsyncLayerRenderCtx: @unchecked Sendable {
     }
 }
 
-@preconcurrency
 final class PoAsyncLayer: CALayer, @unchecked Sendable {
     
     // MARK: - Properties - [public]
@@ -60,8 +59,14 @@ final class PoAsyncLayer: CALayer, @unchecked Sendable {
     
     override func display() {
         super.contents = super.contents
+        
+        struct SafeCarrier: Sendable {
+            let layer: PoAsyncLayer
+        }
+        let carrier = SafeCarrier(layer: self)
+        let isDisplayedAsynchronously = isDisplayedAsynchronously
         MainActor.assumeIsolated {
-            displayAsync(isDisplayedAsynchronously)
+            carrier.layer.displayAsync(isDisplayedAsynchronously)
         }
     }
     
