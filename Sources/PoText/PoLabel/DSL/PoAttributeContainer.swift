@@ -3,7 +3,7 @@ import UIKit
 // MARK: - PoAttributeContainer
 @dynamicMemberLookup
 public struct PoAttributeContainer: @unchecked Sendable {
-    private(set) var attributes : [NSAttributedString.Key : Any]
+    public private(set) var attributes : [NSAttributedString.Key : Any]
 
     public subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
         get { attributes[T.name] as? T.Value }
@@ -73,5 +73,4 @@ extension PoAttributeContainer {
         return copy
     }
 }
-
 

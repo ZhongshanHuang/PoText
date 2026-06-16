@@ -16,6 +16,10 @@ public enum PoAttributedStringBuilder {
     public static func buildExpression(_ poAttributedString: PoAttributedString) -> NSAttributedString {
         poAttributedString.content
     }
+
+    public static func buildExpression(_ poText: PoText) -> NSAttributedString {
+        poText.attributedString
+    }
     
     public static func buildExpression(_ poAttachmentString: PoAttachmentString) -> NSAttributedString {
         poAttachmentString.content
@@ -23,6 +27,10 @@ public enum PoAttributedStringBuilder {
     
     public static func buildExpression(_ attributedString: NSAttributedString) -> NSAttributedString {
         attributedString
+    }
+
+    public static func buildExpression(_ string: String) -> NSAttributedString {
+        NSAttributedString(string: string)
     }
     
     public static func buildOptional(_ component: NSAttributedString?) -> NSAttributedString {
@@ -60,6 +68,14 @@ extension NSAttributedString {
             self.init(attributedString: builder())
         }
     }
+
+    public convenience init(style: PoTextStyle,
+                            mergePolicy: PoTextStyleMergePolicy = .keepExisting,
+                            @PoAttributedStringBuilder builder: () -> NSAttributedString) {
+        let param = NSMutableAttributedString(attributedString: builder())
+        param.po_applyStyle(style, mergePolicy: mergePolicy)
+        self.init(attributedString: param)
+    }
     
 }
 
@@ -71,6 +87,12 @@ extension NSMutableAttributedString {
             self.addAttributes(attributeContainer!.attributes, range: allRange)
         }
     }
+
+    public convenience init(style: PoTextStyle,
+                            mergePolicy: PoTextStyleMergePolicy = .keepExisting,
+                            @PoAttributedStringBuilder mbuilder: () -> NSAttributedString) {
+        self.init(attributedString: mbuilder())
+        po_applyStyle(style, mergePolicy: mergePolicy)
+    }
     
 }
-

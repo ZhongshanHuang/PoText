@@ -2,6 +2,120 @@ import Testing
 import UIKit
 @testable import PoText
 
+@Test func poAttributedStringBuilderAcceptsPlainStringAndPoText() {
+    let text = NSAttributedString {
+        "Hello "
+        PoText("PoText")
+            .font(.boldSystemFont(ofSize: 18))
+            .foregroundColor(.systemRed)
+    }
+
+    #expect(text.string == "Hello PoText")
+    #expect(text.attribute(.font, at: 6, effectiveRange: nil) as? UIFont == .boldSystemFont(ofSize: 18))
+    #expect(text.attribute(.foregroundColor, at: 6, effectiveRange: nil) as? UIColor == .systemRed)
+}
+
+@Test func poTextStyleAppliesReusableAttributes() {
+    let style = PoTextStyle()
+        .font(.systemFont(ofSize: 15))
+        .foregroundColor(.secondaryLabel)
+        .kern(1.5)
+
+    let text = PoText("styled").style(style).attributedString
+
+    #expect(text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont == .systemFont(ofSize: 15))
+    #expect(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .secondaryLabel)
+    #expect(text.attribute(.kern, at: 0, effectiveRange: nil) as? CGFloat == 1.5)
+}
+
+@Test func poTextStyleCanBeAppliedAsBaseStyleForWholeBuilderResult() {
+    let baseStyle = PoTextStyle(font: .systemFont(ofSize: 14), color: .label)
+    let localFont = UIFont.boldSystemFont(ofSize: 18)
+
+    let text = NSAttributedString(style: baseStyle) {
+        "base"
+        PoText("local")
+            .font(localFont)
+            .foregroundColor(.systemRed)
+    }
+
+    #expect(text.string == "baselocal")
+    #expect(text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont == .systemFont(ofSize: 14))
+    #expect(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .label)
+    #expect(text.attribute(.font, at: 4, effectiveRange: nil) as? UIFont == localFont)
+    #expect(text.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? UIColor == .systemRed)
+}
+
+@Test func poTextStyleCanReplaceExistingAttributesWhenRequested() {
+    let baseStyle = PoTextStyle(font: .systemFont(ofSize: 14), color: .label)
+
+    let text = NSAttributedString(style: baseStyle, mergePolicy: .replaceExisting) {
+        PoText("local")
+            .font(.boldSystemFont(ofSize: 18))
+            .foregroundColor(.systemRed)
+    }
+
+    #expect(text.attribute(.font, at: 0, effectiveRange: nil) as? UIFont == .systemFont(ofSize: 14))
+    #expect(text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? UIColor == .label)
+}
+
+@MainActor
+@Test func poLinkAddsHighlightAndProvidesActionContext() {
+    let text = NSAttributedString {
+        PoLink("more") { context in
+            #expect(context.label.text == "more")
+            #expect(context.selectedString == "more")
+        }
+    }
+
+    let highlight = text.attribute(.poHighlight, at: 0, effectiveRange: nil) as? TextHighlight
+    let label = PoLabel(text)
+    highlight?.tapAction?(label, text, text.allRange)
+    #expect(highlight != nil)
+}
+
+@MainActor
+@Test func poAttachmentOverloadsCreateTextAttachments() {
+    let image = UIGraphicsImageRenderer(size: CGSize(width: 8, height: 8)).image { _ in
+        UIColor.systemBlue.setFill()
+        UIBezierPath(rect: CGRect(x: 0, y: 0, width: 8, height: 8)).fill()
+    }
+    let view = UIView(frame: CGRect(x: 0, y: 0, width: 10, height: 10))
+    let layer = CALayer()
+    layer.bounds = CGRect(x: 0, y: 0, width: 12, height: 12)
+
+    let text = NSAttributedString {
+        PoAttachment(image, size: CGSize(width: 8, height: 8))
+        PoAttachment(view)
+        PoAttachment(layer)
+    }
+
+    let imageAttachment = text.attribute(.attachment, at: 0, effectiveRange: nil) as? TextAttachment
+    let viewAttachment = text.attribute(.attachment, at: 1, effectiveRange: nil) as? TextAttachment
+    let layerAttachment = text.attribute(.attachment, at: 2, effectiveRange: nil) as? TextAttachment
+    #expect(imageAttachment?.content == .image(image))
+    #expect(imageAttachment?.bounds.size == CGSize(width: 8, height: 8))
+    #expect(viewAttachment?.content == .view(view))
+    #expect(layerAttachment?.content == .layer(layer))
+}
+
+@MainActor
+@Test func poLabelBuilderInitializerAssignsAttributedText() {
+    let baseStyle = PoTextStyle(font: .systemFont(ofSize: 16))
+    let label = PoLabel(style: baseStyle) {
+        "Hello "
+        PoText("world").foregroundColor(.systemGreen)
+    }
+    .lines(0)
+    .alignment(.center)
+
+    #expect(label.text == "Hello world")
+    #expect(label.numberOfLines == 0)
+    #expect(label.textAlignment == .center)
+    #expect(label.attributedText?.attribute(.font, at: 0, effectiveRange: nil) as? UIFont == .systemFont(ofSize: 16))
+    #expect(label.attributedText?.attribute(.foregroundColor, at: 6, effectiveRange: nil) as? UIColor == .systemGreen)
+}
+
 @MainActor
 @Test func numberOfLinesSetterStoresClampedValue() {
     let label = PoLabel()

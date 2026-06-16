@@ -21,55 +21,15 @@ class AttachmentViewController: ExampleBaseViewController {
     }
     
     private func version1() {
-        let text = NSMutableAttributedString()
         let font = UIFont.systemFont(ofSize: 16)
+        let text = makeText(font: font)
         
-        do {
-            let title = "This is UIImage attachment:"
-            text.append(NSAttributedString(string: title))
-            
-            let image = UIImage(named: "dribbble64_imageio")!
-            let attachText = NSAttributedString.po.attachmentString(with: .image(image), alignToFont: font, verticalAlignment: .top)
-            text.append(attachText)
-            text.append(NSAttributedString(string: "\n"))
-        }
-        
-        do {
-            let title = "This is UIView attachment:"
-            text.append(NSAttributedString(string: title))
-            
-            let switcher = UISwitch()
-            switcher.sizeToFit()
-            
-            let attachText = NSMutableAttributedString.po.attachmentString(with: .view(switcher), size: switcher.frame.size, alignToFont: font, verticalAlignment: .center)
-            text.append(attachText)
-            text.append(NSAttributedString(string: "\n"))
-        }
-        
-        do {
-            let title = "This is Animated Image attachment:"
-            text.append(NSAttributedString(string: title))
-            
-            for name in ["001@2x", "022@2x", "019@2x", "056@2x", "085@2x"] {
-                guard let path = Bundle.main.path(forResource: name, ofType: "gif") else { continue }
-                let image = UIImage(contentsOfFile: path)
-                let imageView = UIImageView(image: image)
-                let attachText = NSMutableAttributedString.po.attachmentString(with: .view(imageView), size: imageView.size, alignToFont: font, verticalAlignment: .bottom)
-                text.append(attachText)
-            }
-        }
-        
-        
-        text.po.font = font
-        
-        
-        label = PoLabel()
-        label.isDisplayedAsynchronously = false
-        label.numberOfLines = 0
-        label.textVerticalAlignment = .top
+        label = PoLabel(text)
+            .asyncDisplay(false)
+            .lines(0)
+            .verticalAlignment(.top)
         label.size = CGSize(width: 300, height: 260)
         label.center = view.center
-        label.attributedText = text
         addSeeMoreButton()
         view.addSubview(label)
         
@@ -96,36 +56,14 @@ class AttachmentViewController: ExampleBaseViewController {
     
     private func version2() {
         let font = UIFont.systemFont(ofSize: 16)
-        let attributeContainer = PoAttributeContainer(attributes: [.font: font])
-        
-        let text = NSAttributedString(attributeContainer: attributeContainer) {
-            "This is UIImage attachment:".po.asAttributedString()
-            PoAttachmentString(.image(UIImage(named: "dribbble64_imageio")!), alignToFont: font, verticalAlignment: .top)
-            
-            "\n".po.asAttributedString()
-  
-            "This is UIView attachment:".po.asAttributedString()
-            
-            PoAttachmentString(.view(UISwitch()), size: CGSize(width: 51, height: 31), alignToFont: font, verticalAlignment: .center)
-            
-            PoAttributedString("\n")
-            
-            "This is Animated Image attachment:".po.asAttributedString()
-            
-            for name in ["001@2x", "022@2x", "019@2x", "056@2x", "085@2x"] {
-                let image = UIImage(contentsOfFile: Bundle.main.path(forResource: name, ofType: "gif")!)
-                let imageView = UIImageView(image: image)
-                PoAttachmentString(.view(imageView), size: imageView.size, alignToFont: font, verticalAlignment: .bottom)
-            }
-        }
+        let text = makeText(font: font)
                         
-        label = PoLabel()
-        label.isDisplayedAsynchronously = false
-        label.numberOfLines = 0
-        label.textVerticalAlignment = .top
+        label = PoLabel(text)
+            .asyncDisplay(false)
+            .lines(0)
+            .verticalAlignment(.top)
         label.size = CGSize(width: 300, height: 260)
         label.center = view.center
-        label.attributedText = text
         addSeeMoreButton()
         view.addSubview(label)
         
@@ -151,25 +89,50 @@ class AttachmentViewController: ExampleBaseViewController {
     }
     
     private func addSeeMoreButton() {
-        
-        let text = NSMutableAttributedString(string: "\(String(unicodeScalarLiteral: "\u{2026}"))more")
-        
-        var hi = TextHighlight()
-        hi.foregroundColor = UIColor(red: 0.578, green: 0.79, blue: 1, alpha: 1)
-        hi.tapAction = { [weak self] (_, _, _) in
-            guard let self = self else { return }
-            self.label.sizeToFit()
+        let text = NSAttributedString(style: PoTextStyle(font: self.label.font)) {
+            PoText("\u{2026}")
+                .foregroundColor(.black)
+            PoText("more")
+                .foregroundColor(UIColor(red: 0, green: 0.449, blue: 1, alpha: 1))
+                .onTap(highlightForegroundColor: UIColor(red: 0.578, green: 0.79, blue: 1, alpha: 1)) { [weak self] _ in
+                    self?.label.sizeToFit()
+                }
         }
-        text.po.setForegroundColor(UIColor(red: 0, green: 0.449, blue: 1, alpha: 1), range: (text.string as NSString).range(of: "more"))
-        text.po.setTextHighlight(hi, range: (text.string as NSString).range(of: "more"))
-        text.po.font = self.label.font
-        
-        let seeMore = PoLabel()
-        seeMore.attributedText = text
+
+        let seeMore = PoLabel(text)
         seeMore.sizeToFit()
-        
-        let truncationToken = NSMutableAttributedString.po.attachmentString(with: .view(seeMore), size: seeMore.size, alignToFont: text.po.font!, verticalAlignment: .center)
+        let truncationToken = PoAttachment(seeMore, size: seeMore.size, alignToFont: self.label.font, verticalAlignment: .center).attributedString
         label.tailTruncationToken = truncationToken
+    }
+
+    private func makeText(font: UIFont) -> NSAttributedString {
+        NSAttributedString(style: PoTextStyle(font: font)) {
+            "This is UIImage attachment:"
+            PoAttachment(UIImage(named: "dribbble64_imageio")!, alignToFont: font, verticalAlignment: .top)
+
+            "\n"
+
+            "This is UIView attachment:"
+
+            let switcher = makeSwitch()
+            PoAttachment(switcher, size: switcher.frame.size, alignToFont: font, verticalAlignment: .center)
+
+            "\n"
+
+            "This is Animated Image attachment:"
+
+            for name in ["001@2x", "022@2x", "019@2x", "056@2x", "085@2x"] {
+                let image = UIImage(contentsOfFile: Bundle.main.path(forResource: name, ofType: "gif")!)
+                let imageView = UIImageView(image: image)
+                PoAttachment(imageView, size: imageView.size, alignToFont: font, verticalAlignment: .bottom)
+            }
+        }
+    }
+
+    private func makeSwitch() -> UISwitch {
+        let switcher = UISwitch()
+        switcher.sizeToFit()
+        return switcher
     }
     
     private func newDotView() -> UIView {

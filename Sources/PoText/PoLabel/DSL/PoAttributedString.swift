@@ -4,7 +4,7 @@ import UIKit.UIView
 // MARK: - PoAttributedString
 @dynamicMemberLookup
 public struct PoAttributedString: @unchecked Sendable {
-    var content: NSAttributedString { storage }
+    public var content: NSAttributedString { storage }
     private let storage: NSMutableAttributedString
 
     public subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
@@ -55,7 +55,7 @@ public struct PoAttributedString: @unchecked Sendable {
 
 // MARK: - Attachment
 public struct PoAttachmentString: @unchecked Sendable {
-    var content: NSAttributedString { storage }
+    public var content: NSAttributedString { storage }
     private let storage: NSAttributedString
     
     public init(_ content: TextAttachment.Content, size: CGSize? = nil, alignToFont: UIFont, verticalAlignment: TextVerticalAlignment) {

@@ -7,13 +7,14 @@
 //
 
 import UIKit
+import PoText
 
 class ExampleBaseViewController: UIViewController {
     
     var padding: NSAttributedString {
-        let pad = NSMutableAttributedString(string: "\n")
-        pad.po.font = UIFont.systemFont(ofSize: 4)
-        return pad
+        PoText("\n")
+            .font(.systemFont(ofSize: 4))
+            .attributedString
     }
     
     override func viewDidLoad() {

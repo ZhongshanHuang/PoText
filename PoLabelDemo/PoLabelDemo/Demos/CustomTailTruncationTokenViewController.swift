@@ -72,11 +72,10 @@ class CustomTailTruncationTokenViewController: ExampleBaseViewController {
         }
         titleLabel.text = title
 
-        let label = PoLabel()
-        label.numberOfLines = 1
-        label.textVerticalAlignment = .center
-        label.lineBreakMode = lineBreakMode
-        label.attributedText = exampleText(font: font)
+        let label = PoLabel(exampleText(font: font))
+            .lines(1)
+            .verticalAlignment(.center)
+            .lineBreak(lineBreakMode)
         label.tailTruncationToken = tailTruncationToken
         label.layer.borderWidth = 0.5
         label.layer.borderColor = UIColor(red: 0, green: 0.436, blue: 1, alpha: 1).cgColor
@@ -90,35 +89,27 @@ class CustomTailTruncationTokenViewController: ExampleBaseViewController {
     }
 
     private func exampleText(font: UIFont) -> NSAttributedString {
-        NSAttributedString(
-            string: "START0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZEND",
-            attributes: [.font: font]
-        )
+        NSAttributedString(style: PoTextStyle(font: font)) {
+            "START0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZEND"
+        }
     }
 
     private func customTailTruncationToken(font: UIFont) -> NSAttributedString {
-        var tokenAttributesContainer = PoAttributeContainer()
-        tokenAttributesContainer.font = font
-        var highlight = TextHighlight()
-        highlight.foregroundColor = UIColor(red: 0.578, green: 0.79, blue: 1, alpha: 1)
-        highlight.tapAction = { (_, _, _) in
-            print("tap more")
-        }
-        tokenAttributesContainer.textHighlight = highlight
-
-        let tokenText = NSMutableAttributedString(attributeContainer: tokenAttributesContainer) {
-            String(unicodeScalarLiteral: "\u{2026}").po.asAttributedString()
+        let tokenText = NSAttributedString(style: PoTextStyle(font: font)) {
+            PoText("\u{2026}")
                 .foregroundColor(.black)
-            "more".po.asAttributedString()
+            PoText("more")
                 .foregroundColor(UIColor(red: 0, green: 0.449, blue: 1, alpha: 1))
+                .onTap(highlightForegroundColor: UIColor(red: 0.578, green: 0.79, blue: 1, alpha: 1)) { _ in
+                    print("tap more")
+                }
         }
 
-        let seeMore = PoLabel()
-        seeMore.attributedText = tokenText
+        let seeMore = PoLabel(tokenText)
         seeMore.sizeToFit()
-        return NSMutableAttributedString.po.attachmentString(with: .view(seeMore),
-                                                             size: seeMore.size,
-                                                             alignToFont: font,
-                                                             verticalAlignment: .center)
+        return PoAttachment(seeMore,
+                            size: seeMore.size,
+                            alignToFont: font,
+                            verticalAlignment: .center).attributedString
     }
 }
