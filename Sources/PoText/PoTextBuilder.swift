@@ -1,7 +1,7 @@
 import Foundation
 
 @resultBuilder
-public enum PoAttributedStringBuilder {
+public enum PoTextBuilder {
     public static func buildBlock() -> NSAttributedString {
         NSAttributedString()
     }
@@ -13,7 +13,7 @@ public enum PoAttributedStringBuilder {
         return result
     }
     
-    public static func buildExpression(_ poAttributedString: PoAttributedString) -> NSAttributedString {
+    static func buildExpression(_ poAttributedString: PoAttributedString) -> NSAttributedString {
         poAttributedString.content
     }
 
@@ -21,7 +21,7 @@ public enum PoAttributedStringBuilder {
         poText.attributedString
     }
     
-    public static func buildExpression(_ poAttachmentString: PoAttachmentString) -> NSAttributedString {
+    static func buildExpression(_ poAttachmentString: PoAttachmentString) -> NSAttributedString {
         poAttachmentString.content
     }
     
@@ -59,7 +59,7 @@ public enum PoAttributedStringBuilder {
 
 extension NSAttributedString {
 
-    public convenience init(attributeContainer: PoAttributeContainer? = nil, @PoAttributedStringBuilder builder: () -> NSAttributedString) {
+    convenience init(attributeContainer: PoAttributeContainer? = nil, @PoTextBuilder builder: () -> NSAttributedString) {
         if attributeContainer != nil {
             let param = NSMutableAttributedString(attributedString: builder())
             param.addAttributes(attributeContainer!.attributes, range: param.allRange)
@@ -70,8 +70,8 @@ extension NSAttributedString {
     }
 
     public convenience init(style: PoTextStyle,
-                            mergePolicy: PoTextStyleMergePolicy = .keepExisting,
-                            @PoAttributedStringBuilder builder: () -> NSAttributedString) {
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
+                            @PoTextBuilder builder: () -> NSAttributedString) {
         let param = NSMutableAttributedString(attributedString: builder())
         param.po_applyStyle(style, mergePolicy: mergePolicy)
         self.init(attributedString: param)
@@ -81,7 +81,7 @@ extension NSAttributedString {
 
 extension NSMutableAttributedString {
 
-    public convenience init(attributeContainer: PoAttributeContainer? = nil, @PoAttributedStringBuilder mbuilder: () -> NSAttributedString) {
+    convenience init(attributeContainer: PoAttributeContainer? = nil, @PoTextBuilder mbuilder: () -> NSAttributedString) {
         self.init(attributedString: mbuilder())
         if attributeContainer != nil {
             self.addAttributes(attributeContainer!.attributes, range: allRange)
@@ -89,8 +89,8 @@ extension NSMutableAttributedString {
     }
 
     public convenience init(style: PoTextStyle,
-                            mergePolicy: PoTextStyleMergePolicy = .keepExisting,
-                            @PoAttributedStringBuilder mbuilder: () -> NSAttributedString) {
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
+                            @PoTextBuilder mbuilder: () -> NSAttributedString) {
         self.init(attributedString: mbuilder())
         po_applyStyle(style, mergePolicy: mergePolicy)
     }

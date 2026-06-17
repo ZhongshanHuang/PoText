@@ -107,9 +107,9 @@ class CustomTailTruncationTokenViewController: ExampleBaseViewController {
 
         let seeMore = PoLabel(tokenText)
         seeMore.sizeToFit()
-        return PoAttachment(seeMore,
-                            size: seeMore.size,
-                            alignToFont: font,
-                            verticalAlignment: .center).attributedString
+        return PoText.attachment(seeMore,
+                                 size: seeMore.size,
+                                 alignToFont: font,
+                                 verticalAlignment: .center).attributedString
     }
 }

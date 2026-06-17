@@ -202,6 +202,10 @@ public struct TextHighlight: Hashable, @unchecked Sendable {
     }
     
     public init() {}
+
+    public init(attributes: [NSAttributedString.Key: Any]) {
+        self.attributes = attributes
+    }
     
     public init(foregroundColor: UIColor, tapAction: @escaping TextAction) {
         self.foregroundColor = foregroundColor
@@ -276,4 +280,3 @@ public struct TextToken: RawRepresentable, Sendable {
 //    public static let attachment: TextToken = TextToken(rawValue: String(UnicodeScalar(0xFFFC)!)) // 空白占位符,16进制
     public static let truncation: TextToken = TextToken(rawValue: String(unicodeScalarLiteral: "\u{2026}")) // 省略号… ，16进制
 }
-

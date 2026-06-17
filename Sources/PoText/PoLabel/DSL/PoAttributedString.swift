@@ -3,11 +3,11 @@ import UIKit.UIView
     
 // MARK: - PoAttributedString
 @dynamicMemberLookup
-public struct PoAttributedString: @unchecked Sendable {
-    public var content: NSAttributedString { storage }
+struct PoAttributedString: @unchecked Sendable {
+    var content: NSAttributedString { storage }
     private let storage: NSMutableAttributedString
 
-    public subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
+    subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
         get { storage.po.attribute(T.name, at: 0) as? T.Value }
         set {
             if newValue is NSUnderlineStyle { // fix attributes
@@ -18,35 +18,35 @@ public struct PoAttributedString: @unchecked Sendable {
         }
     }
 
-    public subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> K.Value? {
+    subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> K.Value? {
         get { self[K.self] }
         set { self[K.self] = newValue }
     }
 
-    public subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> Builder<K> {
+    subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> Builder<K> {
         return Builder(container: self)
     }
 
-    public struct Builder<T: PoAttributedStringKey>: Sendable {
+    struct Builder<T: PoAttributedStringKey>: Sendable {
         var container : PoAttributedString
 
-        public func callAsFunction(_ value: T.Value) -> PoAttributedString {
+        func callAsFunction(_ value: T.Value) -> PoAttributedString {
             var new = container
             new[T.self] = value
             return new
         }
     }
 
-    public init(_ string: String) {
+    init(_ string: String) {
         storage = NSMutableAttributedString(string: string)
     }
     
-    public init(_ attributedString: NSAttributedString) {
+    init(_ attributedString: NSAttributedString) {
         storage = NSMutableAttributedString(attributedString: attributedString)
     }
     
     /// add attributeContainer
-    public func attributeContainer(_ container: PoAttributeContainer) -> Self {
+    func attributeContainer(_ container: PoAttributeContainer) -> Self {
         storage.po.addAttributes(container.attributes)
         return self
     }
@@ -54,11 +54,11 @@ public struct PoAttributedString: @unchecked Sendable {
 }
 
 // MARK: - Attachment
-public struct PoAttachmentString: @unchecked Sendable {
-    public var content: NSAttributedString { storage }
+struct PoAttachmentString: @unchecked Sendable {
+    var content: NSAttributedString { storage }
     private let storage: NSAttributedString
     
-    public init(_ content: TextAttachment.Content, size: CGSize? = nil, alignToFont: UIFont, verticalAlignment: TextVerticalAlignment) {
+    init(_ content: TextAttachment.Content, size: CGSize? = nil, alignToFont: UIFont, verticalAlignment: TextVerticalAlignment) {
         let contentMode: UIView.ContentMode
         switch verticalAlignment {
         case .top:
@@ -71,7 +71,7 @@ public struct PoAttachmentString: @unchecked Sendable {
         self.init(content, size: size, alignToFont: alignToFont, contentInsets: .zero, verticalAlignment: verticalAlignment, contentMode: contentMode)
     }
     
-    public init(_ content: TextAttachment.Content, size: CGSize?, alignToFont: UIFont, contentInsets: UIEdgeInsets, verticalAlignment: TextVerticalAlignment, contentMode: UIView.ContentMode) {
+    init(_ content: TextAttachment.Content, size: CGSize?, alignToFont: UIFont, contentInsets: UIEdgeInsets, verticalAlignment: TextVerticalAlignment, contentMode: UIView.ContentMode) {
         storage = NSAttributedString.po.attachmentString(with: content, size: size, alignToFont: alignToFont, contentInsets: contentInsets, verticalAlignment: verticalAlignment, contentMode: contentMode)
     }
 }
@@ -80,7 +80,7 @@ public struct PoAttachmentString: @unchecked Sendable {
 extension String: NameSpaceCompatible {}
 
 extension NameSpaceWrapper where Base == String {
-    public func asAttributedString() -> PoAttributedString {
+    func asAttributedString() -> PoAttributedString {
         PoAttributedString(base)
     }
 }

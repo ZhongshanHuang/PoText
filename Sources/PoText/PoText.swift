@@ -29,14 +29,14 @@ public struct PoTextActionContext {
 public typealias PoTextAction = (PoTextActionContext) -> Void
 
 public enum PoTextStyleMergePolicy: Sendable {
-    case keepExisting
-    case replaceExisting
+    case keepLocal
+    case overrideLocal
 }
 
 public struct PoTextStyle: @unchecked Sendable {
     private var container: PoAttributeContainer
 
-    public var attributeContainer: PoAttributeContainer {
+    var attributeContainer: PoAttributeContainer {
         container
     }
 
@@ -60,7 +60,7 @@ public struct PoTextStyle: @unchecked Sendable {
         container = PoAttributeContainer(attributes)
     }
 
-    public init(_ container: PoAttributeContainer) {
+    init(_ container: PoAttributeContainer) {
         self.container = container
     }
 
@@ -151,8 +151,8 @@ public struct PoText: @unchecked Sendable {
     }
 
     public init(style: PoTextStyle,
-                mergePolicy: PoTextStyleMergePolicy = .keepExisting,
-                @PoAttributedStringBuilder _ builder: () -> NSAttributedString) {
+                mergePolicy: PoTextStyleMergePolicy = .keepLocal,
+                @PoTextBuilder _ builder: () -> NSAttributedString) {
         storage = NSMutableAttributedString(attributedString: builder())
         storage.po_applyStyle(style, mergePolicy: mergePolicy)
     }
@@ -170,7 +170,7 @@ public struct PoText: @unchecked Sendable {
         attributes(style.attributes)
     }
 
-    public func attributeContainer(_ container: PoAttributeContainer) -> Self {
+    func attributeContainer(_ container: PoAttributeContainer) -> Self {
         attributes(container.attributes)
     }
 
@@ -272,39 +272,115 @@ public struct PoText: @unchecked Sendable {
     }
 
     public func highlight(_ highlight: TextHighlight?) -> Self {
-        applying { $0.po.textHighlight = highlight }
+        applying { text in
+            text.po.setTextHighlight(nil, range: text.allRange)
+            text.po.setTextHighlight(highlight, range: text.allRange)
+        }
     }
 
     public func onTap(highlightForegroundColor: UIColor? = nil,
                       highlightBackgroundColor: UIColor? = nil,
                       action: @escaping PoTextAction) -> Self {
-        var highlight = TextHighlight()
-        highlight.foregroundColor = highlightForegroundColor
-        if let highlightBackgroundColor {
-            highlight.border = TextBorder(fillColor: highlightBackgroundColor,
-                                          cornerRadius: 3,
-                                          insets: UIEdgeInsets(top: -2, left: -1, bottom: -2, right: -1))
+        updatingHighlight(foregroundColor: highlightForegroundColor,
+                          backgroundColor: highlightBackgroundColor) { highlight in
+            highlight.tapAction = { label, text, range in
+                action(PoTextActionContext(label: label, text: text, range: range))
+            }
         }
-        highlight.tapAction = { label, text, range in
-            action(PoTextActionContext(label: label, text: text, range: range))
-        }
-        return self.highlight(highlight)
     }
 
     public func onLongPress(highlightForegroundColor: UIColor? = nil,
                             highlightBackgroundColor: UIColor? = nil,
                             action: @escaping PoTextAction) -> Self {
-        var highlight = TextHighlight()
-        highlight.foregroundColor = highlightForegroundColor
-        if let highlightBackgroundColor {
-            highlight.border = TextBorder(fillColor: highlightBackgroundColor,
-                                          cornerRadius: 3,
-                                          insets: UIEdgeInsets(top: -2, left: -1, bottom: -2, right: -1))
+        updatingHighlight(foregroundColor: highlightForegroundColor,
+                          backgroundColor: highlightBackgroundColor) { highlight in
+            highlight.longPressAction = { label, text, range in
+                action(PoTextActionContext(label: label, text: text, range: range))
+            }
         }
-        highlight.longPressAction = { label, text, range in
-            action(PoTextActionContext(label: label, text: text, range: range))
+    }
+
+    public static func link(_ string: String,
+                            color: UIColor = .systemBlue,
+                            isUnderlined: Bool = false,
+                            highlightColor: UIColor? = nil,
+                            action: @escaping PoTextAction) -> PoText {
+        var text = PoText(string)
+            .foregroundColor(color)
+            .onTap(highlightBackgroundColor: highlightColor ?? color.withAlphaComponent(0.12),
+                   action: action)
+        if isUnderlined {
+            text = text.underline(color: color)
         }
-        return self.highlight(highlight)
+        return text
+    }
+
+    public static func attachment(_ content: TextAttachment.Content,
+                                  size: CGSize? = nil,
+                                  alignToFont font: UIFont = .systemFont(ofSize: 17),
+                                  contentInsets: UIEdgeInsets = .zero,
+                                  verticalAlignment: TextVerticalAlignment = .center,
+                                  contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
+        PoText(NSAttributedString.po.attachmentString(with: content,
+                                                      size: size,
+                                                      alignToFont: font,
+                                                      contentInsets: contentInsets,
+                                                      verticalAlignment: verticalAlignment,
+                                                      contentMode: contentMode))
+    }
+
+    public static func attachment(_ image: UIImage,
+                                  size: CGSize? = nil,
+                                  alignToFont font: UIFont = .systemFont(ofSize: 17),
+                                  contentInsets: UIEdgeInsets = .zero,
+                                  verticalAlignment: TextVerticalAlignment = .center,
+                                  contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
+        attachment(.image(image),
+                   size: size,
+                   alignToFont: font,
+                   contentInsets: contentInsets,
+                   verticalAlignment: verticalAlignment,
+                   contentMode: contentMode)
+    }
+
+    public static func attachment(_ view: UIView,
+                                  size: CGSize? = nil,
+                                  alignToFont font: UIFont = .systemFont(ofSize: 17),
+                                  contentInsets: UIEdgeInsets = .zero,
+                                  verticalAlignment: TextVerticalAlignment = .center,
+                                  contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
+        attachment(.view(view),
+                   size: size,
+                   alignToFont: font,
+                   contentInsets: contentInsets,
+                   verticalAlignment: verticalAlignment,
+                   contentMode: contentMode)
+    }
+
+    public static func attachment(_ layer: CALayer,
+                                  size: CGSize? = nil,
+                                  alignToFont font: UIFont = .systemFont(ofSize: 17),
+                                  contentInsets: UIEdgeInsets = .zero,
+                                  verticalAlignment: TextVerticalAlignment = .center,
+                                  contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
+        attachment(.layer(layer),
+                   size: size,
+                   alignToFont: font,
+                   contentInsets: contentInsets,
+                   verticalAlignment: verticalAlignment,
+                   contentMode: contentMode)
+    }
+
+    public static func tag(_ string: String,
+                           font: UIFont = .systemFont(ofSize: 12),
+                           color: UIColor = .label,
+                           fillColor: UIColor = .systemYellow,
+                           cornerRadius: CGFloat = 3,
+                           insets: UIEdgeInsets = UIEdgeInsets(top: -2, left: -4, bottom: -2, right: -4)) -> PoText {
+        PoText(string)
+            .font(font)
+            .foregroundColor(color)
+            .fill(fillColor, cornerRadius: cornerRadius, insets: insets)
     }
 
     private func applying(_ update: (NSMutableAttributedString) -> Void) -> Self {
@@ -312,95 +388,38 @@ public struct PoText: @unchecked Sendable {
         update(newStorage)
         return Self(storage: newStorage)
     }
+
+    private func updatingHighlight(foregroundColor: UIColor?,
+                                   backgroundColor: UIColor?,
+                                   update: (inout TextHighlight) -> Void) -> Self {
+        applying { text in
+            let current = text.po.textHighlight
+            var highlight = TextHighlight(attributes: current?.attributes ?? [:])
+            highlight.tapAction = current?.tapAction
+            highlight.longPressAction = current?.longPressAction
+            if let foregroundColor {
+                highlight.foregroundColor = foregroundColor
+            }
+            if let backgroundColor {
+                highlight.border = Self.highlightBorder(fillColor: backgroundColor)
+            }
+            update(&highlight)
+            text.po.setTextHighlight(nil, range: text.allRange)
+            text.po.setTextHighlight(highlight, range: text.allRange)
+        }
+    }
+
+    private static func highlightBorder(fillColor: UIColor) -> TextBorder {
+        TextBorder(fillColor: fillColor,
+                   cornerRadius: 3,
+                   insets: UIEdgeInsets(top: -2, left: -1, bottom: -2, right: -1))
+    }
 }
 
 extension NameSpaceWrapper where Base == String {
     public var text: PoText {
         PoText(base)
     }
-}
-
-public func PoLink(_ string: String,
-                   color: UIColor = .systemBlue,
-                   isUnderlined: Bool = false,
-                   highlightColor: UIColor? = nil,
-                   action: @escaping PoTextAction) -> PoText {
-    var text = PoText(string)
-        .foregroundColor(color)
-        .onTap(highlightBackgroundColor: highlightColor ?? color.withAlphaComponent(0.12),
-               action: action)
-    if isUnderlined {
-        text = text.underline(color: color)
-    }
-    return text
-}
-
-public func PoAttachment(_ content: TextAttachment.Content,
-                         size: CGSize? = nil,
-                         alignToFont font: UIFont = .systemFont(ofSize: 17),
-                         contentInsets: UIEdgeInsets = .zero,
-                         verticalAlignment: TextVerticalAlignment = .center,
-                         contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
-    PoText(NSAttributedString.po.attachmentString(with: content,
-                                                  size: size,
-                                                  alignToFont: font,
-                                                  contentInsets: contentInsets,
-                                                  verticalAlignment: verticalAlignment,
-                                                  contentMode: contentMode))
-}
-
-public func PoAttachment(_ image: UIImage,
-                         size: CGSize? = nil,
-                         alignToFont font: UIFont = .systemFont(ofSize: 17),
-                         contentInsets: UIEdgeInsets = .zero,
-                         verticalAlignment: TextVerticalAlignment = .center,
-                         contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
-    PoAttachment(.image(image),
-                 size: size,
-                 alignToFont: font,
-                 contentInsets: contentInsets,
-                 verticalAlignment: verticalAlignment,
-                 contentMode: contentMode)
-}
-
-public func PoAttachment(_ view: UIView,
-                         size: CGSize? = nil,
-                         alignToFont font: UIFont = .systemFont(ofSize: 17),
-                         contentInsets: UIEdgeInsets = .zero,
-                         verticalAlignment: TextVerticalAlignment = .center,
-                         contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
-    PoAttachment(.view(view),
-                 size: size,
-                 alignToFont: font,
-                 contentInsets: contentInsets,
-                 verticalAlignment: verticalAlignment,
-                 contentMode: contentMode)
-}
-
-public func PoAttachment(_ layer: CALayer,
-                         size: CGSize? = nil,
-                         alignToFont font: UIFont = .systemFont(ofSize: 17),
-                         contentInsets: UIEdgeInsets = .zero,
-                         verticalAlignment: TextVerticalAlignment = .center,
-                         contentMode: UIView.ContentMode = .scaleAspectFit) -> PoText {
-    PoAttachment(.layer(layer),
-                 size: size,
-                 alignToFont: font,
-                 contentInsets: contentInsets,
-                 verticalAlignment: verticalAlignment,
-                 contentMode: contentMode)
-}
-
-public func PoTag(_ string: String,
-                  font: UIFont = .systemFont(ofSize: 12),
-                  color: UIColor = .label,
-                  fillColor: UIColor = .systemYellow,
-                  cornerRadius: CGFloat = 3,
-                  insets: UIEdgeInsets = UIEdgeInsets(top: -2, left: -4, bottom: -2, right: -4)) -> PoText {
-    PoText(string)
-        .font(font)
-        .foregroundColor(color)
-        .fill(fillColor, cornerRadius: cornerRadius, insets: insets)
 }
 
 extension PoLabel {
@@ -414,29 +433,29 @@ extension PoLabel {
         self.attributedText = attributedText
     }
 
-    public convenience init(frame: CGRect = .zero,
-                            attributeContainer: PoAttributeContainer? = nil,
-                            @PoAttributedStringBuilder _ builder: () -> NSAttributedString) {
+    convenience init(frame: CGRect = .zero,
+                     attributeContainer: PoAttributeContainer? = nil,
+                     @PoTextBuilder _ builder: () -> NSAttributedString) {
         self.init(frame: frame)
         setText(attributeContainer: attributeContainer, builder)
     }
 
-    public func setText(attributeContainer: PoAttributeContainer? = nil,
-                        @PoAttributedStringBuilder _ builder: () -> NSAttributedString) {
+    func setText(attributeContainer: PoAttributeContainer? = nil,
+                 @PoTextBuilder _ builder: () -> NSAttributedString) {
         attributedText = NSAttributedString(attributeContainer: attributeContainer, builder: builder)
     }
 
     public convenience init(frame: CGRect = .zero,
                             style: PoTextStyle,
-                            mergePolicy: PoTextStyleMergePolicy = .keepExisting,
-                            @PoAttributedStringBuilder _ builder: () -> NSAttributedString) {
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
+                            @PoTextBuilder _ builder: () -> NSAttributedString) {
         self.init(frame: frame)
         setText(style: style, mergePolicy: mergePolicy, builder)
     }
 
     public func setText(style: PoTextStyle,
-                        mergePolicy: PoTextStyleMergePolicy = .keepExisting,
-                        @PoAttributedStringBuilder _ builder: () -> NSAttributedString) {
+                        mergePolicy: PoTextStyleMergePolicy = .keepLocal,
+                        @PoTextBuilder _ builder: () -> NSAttributedString) {
         attributedText = NSAttributedString(style: style,
                                             mergePolicy: mergePolicy) {
             builder()
@@ -489,9 +508,7 @@ extension NSMutableAttributedString {
         guard length > 0, !attributes.isEmpty else { return }
 
         switch mergePolicy {
-        case .replaceExisting:
-            addAttributes(attributes, range: allRange)
-        case .keepExisting:
+        case .keepLocal:
             var updates: [(range: NSRange, attributes: [NSAttributedString.Key: Any])] = []
             enumerateAttributes(in: allRange, options: []) { currentAttributes, range, _ in
                 var missingAttributes: [NSAttributedString.Key: Any] = [:]
@@ -505,6 +522,8 @@ extension NSMutableAttributedString {
             for update in updates {
                 addAttributes(update.attributes, range: update.range)
             }
+        case .overrideLocal:
+            addAttributes(attributes, range: allRange)
         }
     }
 }

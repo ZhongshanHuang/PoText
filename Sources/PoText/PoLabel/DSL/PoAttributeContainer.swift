@@ -2,10 +2,10 @@ import UIKit
 
 // MARK: - PoAttributeContainer
 @dynamicMemberLookup
-public struct PoAttributeContainer: @unchecked Sendable {
-    public private(set) var attributes : [NSAttributedString.Key : Any]
+struct PoAttributeContainer: @unchecked Sendable {
+    private(set) var attributes : [NSAttributedString.Key : Any]
 
-    public subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
+    subscript<T: PoAttributedStringKey>(_: T.Type) -> T.Value? {
         get { attributes[T.name] as? T.Value }
         set {
             if newValue is NSUnderlineStyle { // fix attributes
@@ -16,34 +16,34 @@ public struct PoAttributeContainer: @unchecked Sendable {
         }
     }
 
-    public subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> K.Value? {
+    subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> K.Value? {
         get { self[K.self] }
         set { self[K.self] = newValue }
     }
 
-    public subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> Builder<K> {
+    subscript<K: PoAttributedStringKey>(dynamicMember keyPath: KeyPath<PoAttributeDynamicLookup, K>) -> Builder<K> {
         return Builder(container: self)
     }
 
-    public struct Builder<T: PoAttributedStringKey>: Sendable {
+    struct Builder<T: PoAttributedStringKey>: Sendable {
         var container : PoAttributeContainer
 
-        public func callAsFunction(_ value: T.Value) -> PoAttributeContainer {
+        func callAsFunction(_ value: T.Value) -> PoAttributeContainer {
             var new = container
             new[T.self] = value
             return new
         }
     }
 
-    public init() {
+    init() {
         attributes = [:]
     }
     
-    public init(_ attributes: [NSAttributedString.Key : Any]) {
+    init(_ attributes: [NSAttributedString.Key : Any]) {
         self.attributes = attributes
     }
     
-    public init(attributes: [NSAttributedString.Key : Any] = [:]) {
+    init(attributes: [NSAttributedString.Key : Any] = [:]) {
         self.attributes = attributes
     }
     
@@ -51,12 +51,12 @@ public struct PoAttributeContainer: @unchecked Sendable {
 
 // MARK: - AttributeContainer + merge
 extension PoAttributeContainer {
-    public enum AttributeMergePolicy : Sendable {
+    enum AttributeMergePolicy : Sendable {
         case keepNew
         case keepCurrent
     }
     
-    public mutating func merge(_ other: PoAttributeContainer, mergePolicy: PoAttributeContainer.AttributeMergePolicy = .keepNew) {
+    mutating func merge(_ other: PoAttributeContainer, mergePolicy: PoAttributeContainer.AttributeMergePolicy = .keepNew) {
         self.attributes.merge(other.attributes) { v1, v2 in
             switch mergePolicy {
             case .keepNew:
@@ -67,7 +67,7 @@ extension PoAttributeContainer {
         }
     }
 
-    public func merging(_ other: PoAttributeContainer, mergePolicy:  PoAttributeContainer.AttributeMergePolicy = .keepNew) -> PoAttributeContainer {
+    func merging(_ other: PoAttributeContainer, mergePolicy:  PoAttributeContainer.AttributeMergePolicy = .keepNew) -> PoAttributeContainer {
         var copy = self
         copy.merge(other, mergePolicy:  mergePolicy)
         return copy

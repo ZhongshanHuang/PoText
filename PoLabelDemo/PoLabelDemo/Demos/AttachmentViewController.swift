@@ -101,21 +101,21 @@ class AttachmentViewController: ExampleBaseViewController {
 
         let seeMore = PoLabel(text)
         seeMore.sizeToFit()
-        let truncationToken = PoAttachment(seeMore, size: seeMore.size, alignToFont: self.label.font, verticalAlignment: .center).attributedString
+        let truncationToken = PoText.attachment(seeMore, size: seeMore.size, alignToFont: self.label.font, verticalAlignment: .center).attributedString
         label.tailTruncationToken = truncationToken
     }
 
     private func makeText(font: UIFont) -> NSAttributedString {
         NSAttributedString(style: PoTextStyle(font: font)) {
             "This is UIImage attachment:"
-            PoAttachment(UIImage(named: "dribbble64_imageio")!, alignToFont: font, verticalAlignment: .top)
+            PoText.attachment(UIImage(named: "dribbble64_imageio")!, alignToFont: font, verticalAlignment: .top)
 
             "\n"
 
             "This is UIView attachment:"
 
             let switcher = makeSwitch()
-            PoAttachment(switcher, size: switcher.frame.size, alignToFont: font, verticalAlignment: .center)
+            PoText.attachment(switcher, size: switcher.frame.size, alignToFont: font, verticalAlignment: .center)
 
             "\n"
 
@@ -124,7 +124,7 @@ class AttachmentViewController: ExampleBaseViewController {
             for name in ["001@2x", "022@2x", "019@2x", "056@2x", "085@2x"] {
                 let image = UIImage(contentsOfFile: Bundle.main.path(forResource: name, ofType: "gif")!)
                 let imageView = UIImageView(image: image)
-                PoAttachment(imageView, size: imageView.size, alignToFont: font, verticalAlignment: .bottom)
+                PoText.attachment(imageView, size: imageView.size, alignToFont: font, verticalAlignment: .bottom)
             }
         }
     }

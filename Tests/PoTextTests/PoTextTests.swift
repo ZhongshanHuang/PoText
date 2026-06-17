@@ -2,7 +2,7 @@ import Testing
 import UIKit
 @testable import PoText
 
-@Test func poAttributedStringBuilderAcceptsPlainStringAndPoText() {
+@Test func poTextBuilderAcceptsPlainStringAndPoText() {
     let text = NSAttributedString {
         "Hello "
         PoText("PoText")
@@ -46,10 +46,10 @@ import UIKit
     #expect(text.attribute(.foregroundColor, at: 4, effectiveRange: nil) as? UIColor == .systemRed)
 }
 
-@Test func poTextStyleCanReplaceExistingAttributesWhenRequested() {
+@Test func poTextStyleCanOverrideLocalAttributesWhenRequested() {
     let baseStyle = PoTextStyle(font: .systemFont(ofSize: 14), color: .label)
 
-    let text = NSAttributedString(style: baseStyle, mergePolicy: .replaceExisting) {
+    let text = NSAttributedString(style: baseStyle, mergePolicy: .overrideLocal) {
         PoText("local")
             .font(.boldSystemFont(ofSize: 18))
             .foregroundColor(.systemRed)
@@ -62,7 +62,7 @@ import UIKit
 @MainActor
 @Test func poLinkAddsHighlightAndProvidesActionContext() {
     let text = NSAttributedString {
-        PoLink("more") { context in
+        PoText.link("more") { context in
             #expect(context.label.text == "more")
             #expect(context.selectedString == "more")
         }
@@ -85,9 +85,9 @@ import UIKit
     layer.bounds = CGRect(x: 0, y: 0, width: 12, height: 12)
 
     let text = NSAttributedString {
-        PoAttachment(image, size: CGSize(width: 8, height: 8))
-        PoAttachment(view)
-        PoAttachment(layer)
+        PoText.attachment(image, size: CGSize(width: 8, height: 8))
+        PoText.attachment(view)
+        PoText.attachment(layer)
     }
 
     let imageAttachment = text.attribute(.attachment, at: 0, effectiveRange: nil) as? TextAttachment
@@ -97,6 +97,46 @@ import UIKit
     #expect(imageAttachment?.bounds.size == CGSize(width: 8, height: 8))
     #expect(viewAttachment?.content == .view(view))
     #expect(layerAttachment?.content == .layer(layer))
+}
+
+@MainActor
+@Test func poTextTapAndLongPressActionsCanBeComposed() {
+    var didTap = false
+    var didLongPress = false
+    var didLongPressOnly = false
+
+    let longPressOnlyText = PoText("long")
+        .onLongPress { _ in
+            didLongPressOnly = true
+        }
+        .attributedString
+    let longPressOnlyHighlight = longPressOnlyText.attribute(.poHighlight, at: 0, effectiveRange: nil) as? TextHighlight
+    let longPressOnlyAction = longPressOnlyHighlight?.longPressAction
+    longPressOnlyAction?(PoLabel(longPressOnlyText), longPressOnlyText, longPressOnlyText.allRange)
+
+    let text = PoText("action")
+        .onTap(highlightBackgroundColor: .systemGray5) { _ in
+            didTap = true
+        }
+        .onLongPress { _ in
+            didLongPress = true
+        }
+        .attributedString
+
+    let highlight = text.attribute(.poHighlight, at: 0, effectiveRange: nil) as? TextHighlight
+    let label = PoLabel(text)
+    let tapAction = highlight?.tapAction
+    let longPressAction = highlight?.longPressAction
+    tapAction?(label, text, text.allRange)
+    longPressAction?(label, text, text.allRange)
+
+    #expect(longPressOnlyAction != nil)
+    #expect(didLongPressOnly)
+    #expect(tapAction != nil)
+    #expect(longPressAction != nil)
+    #expect(didTap)
+    #expect(didLongPress)
+    #expect(highlight?.border != nil)
 }
 
 @MainActor

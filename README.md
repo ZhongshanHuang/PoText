@@ -19,13 +19,14 @@ let label = PoLabel(style: bodyStyle) {
 ```
 
 `style:` is applied as a base style. Local attributes keep priority by default.
+Use `mergePolicy: .overrideLocal` when the base style should replace local attributes.
 
 ## Highlights
 
 ```swift
 let text = NSAttributedString {
     "Tap "
-    PoLink("here") { context in
+    PoText.link("here") { context in
         print(context.selectedString ?? "")
     }
 }
@@ -36,6 +37,6 @@ let text = NSAttributedString {
 ```swift
 let imageText = NSAttributedString {
     "Icon "
-    PoAttachment(UIImage(named: "icon")!, size: CGSize(width: 16, height: 16))
+    PoText.attachment(UIImage(named: "icon")!, size: CGSize(width: 16, height: 16))
 }
 ```
