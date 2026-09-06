@@ -11,7 +11,8 @@ extension PoLabel: PoAsyncLayerDelegate {
 
         let container = _innerContainer
         let verticalAlignment = textVerticalAlignment
-        let layoutNeedUpdate = _state.isLayoutNeedUpdate
+        let needsCommitLayout = !isIgnoredCommonProperties &&
+            (_state.isLayoutNeedUpdate || (_innerLayout == nil && !_innerText.isEmpty))
         let fadeForAsync = isDisplayedAsynchronously && isFadedOnAsynchronouslyDisplay
         let textContainerInsets = _textContainerInsets
         let isHighlighting = _state.showHighlight && _highlight != nil && _highlightRange.location != NSNotFound
@@ -33,10 +34,15 @@ extension PoLabel: PoAsyncLayerDelegate {
                                              shouldCommitLayout: false)
         }
 
-        let reusableLayout = !layoutNeedUpdate ? _innerLayout : nil
-        let pendingSynchronousLayout = !isDisplayedAsynchronously && layoutNeedUpdate ? TextLayout(attributedString: _innerText, container: container) : nil
-        let layout = reusableLayout ?? pendingSynchronousLayout
-        let text = layout == nil ? _innerText : NSAttributedString()
+        // Build the synchronous layout into the label cache before handing it
+        // to the render context. A repeated prepare call can then reuse it.
+        if !isDisplayedAsynchronously && !isIgnoredCommonProperties &&
+            (needsCommitLayout || (_innerLayout == nil && !_innerText.isEmpty)) {
+            _updateIfNeeded()
+        }
+        let layoutNeedUpdate = _state.isLayoutNeedUpdate
+        let layout = !layoutNeedUpdate ? _innerLayout : nil
+        let text = layout == nil && !isIgnoredCommonProperties ? _innerText : NSAttributedString()
         return PoAsyncLayerRenderContext(text: text,
                                          container: container,
                                          verticalAlignment: verticalAlignment,
@@ -44,7 +50,7 @@ extension PoLabel: PoAsyncLayerDelegate {
                                          fadeForAsync: fadeForAsync,
                                          textContainerInsets: textContainerInsets,
                                          layout: layout,
-                                         shouldCommitLayout: layoutNeedUpdate)
+                                         shouldCommitLayout: needsCommitLayout)
     }
 
     func asyncLayerWillDisplay(_ layer: CALayer, renderContext: PoAsyncLayerRenderContext) {
@@ -52,7 +58,8 @@ extension PoLabel: PoAsyncLayerDelegate {
 
         guard !_attachmentViews.isEmpty || !_attachmentLayers.isEmpty else { return }
 
-        let hostedAttachmentInfos = renderContext.shouldCommitLayout ? nil : renderContext.layout?.hostedAttachmentInfos
+        let resolvedLayout = renderContext.layout
+        let hostedAttachmentInfos = renderContext.shouldCommitLayout ? nil : resolvedLayout?.hostedAttachmentInfos
         let shouldRemoveAllAttachments = hostedAttachmentInfos == nil
         var currentAttachmentViews = Set<ObjectIdentifier>()
         var currentAttachmentLayers = Set<ObjectIdentifier>()
@@ -110,12 +117,14 @@ extension PoLabel: PoAsyncLayerDelegate {
 
         layer.removeAnimation(forKey: "contents")
 
+        let resolvedLayout = renderContext.layout
+
         if renderContext.shouldCommitLayout {
-            _innerLayout = renderContext.layout
+            _innerLayout = resolvedLayout
             _state.isLayoutNeedUpdate = false
         }
 
-        if let layout = renderContext.layout, !layout.hostedAttachmentInfos.isEmpty {
+        if let layout = resolvedLayout, !layout.hostedAttachmentInfos.isEmpty {
             let size = layer.bounds.size
             let point = renderContext.drawingPoint(for: size)
             let drawnAttachments = layout.drawAttachments(in: self, at: point, size: size)

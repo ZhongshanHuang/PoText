@@ -21,11 +21,7 @@ class ExampleBaseViewController: UIViewController {
         super.viewDidLoad()
         
         // Do any additional setup after loading the view.
-        if #available(iOS 13.0, *) {
-            view.backgroundColor = .systemBackground
-        } else {
-            view.backgroundColor = UIColor.white
-        }
+        view.backgroundColor = .systemBackground
     }
     
 

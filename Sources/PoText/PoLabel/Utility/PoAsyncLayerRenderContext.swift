@@ -9,7 +9,17 @@ final class PoAsyncLayerRenderContext: @unchecked Sendable {
     let textContainerInsets: UIEdgeInsets
     let shouldCommitLayout: Bool
     
-    private(set) var layout: TextLayout?
+    private var resolvedLayout: TextLayout?
+    private let layoutLock = NSLock()
+
+    /// The resolved layout is shared by the drawing task and the main-thread
+    /// attachment callbacks. Access is serialized because the context is
+    /// intentionally sendable across those execution domains.
+    var layout: TextLayout? {
+        layoutLock.lock()
+        defer { layoutLock.unlock() }
+        return resolvedLayout
+    }
 
     var hasRenderableContent: Bool {
         !text.isEmpty || layout != nil
@@ -29,7 +39,7 @@ final class PoAsyncLayerRenderContext: @unchecked Sendable {
         self.contentsNeedFade = contentsNeedFade
         self.fadeForAsync = fadeForAsync
         self.textContainerInsets = textContainerInsets
-        self.layout = layout
+        self.resolvedLayout = layout
         self.shouldCommitLayout = shouldCommitLayout
     }
     
@@ -46,11 +56,13 @@ final class PoAsyncLayerRenderContext: @unchecked Sendable {
     
     @discardableResult
     func resolveLayout() -> TextLayout? {
-        if let layout { return layout }
+        layoutLock.lock()
+        defer { layoutLock.unlock() }
+        if let resolvedLayout { return resolvedLayout }
         guard !text.isEmpty else { return nil }
-        let resolvedLayout = TextLayout(attributedString: text, container: container)
-        layout = resolvedLayout
-        return resolvedLayout
+        let layout = TextLayout(attributedString: text, container: container)
+        resolvedLayout = layout
+        return layout
     }
     
     private func drawingPoint(for size: CGSize, textBoundingSize: CGSize) -> CGPoint {

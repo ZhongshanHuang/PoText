@@ -11,12 +11,12 @@ extension NameSpaceWrapper where Base: NSAttributedString {
     }
     
     public func attributes(at index: Int) -> Dictionary<NSAttributedString.Key, Any>? {
-        if base.length == 0 || index >= base.length { return nil }
+        if base.length == 0 || index < 0 || index >= base.length { return nil }
         return base.attributes(at: index, effectiveRange: nil)
     }
     
     public func attribute(_ attrName: NSAttributedString.Key, at index: Int) -> Any? {
-        if base.length == 0 || index >= base.length { return nil }
+        if base.length == 0 || index < 0 || index >= base.length { return nil }
         return base.attribute(attrName, at: index, effectiveRange: nil)
     }
     
@@ -1213,4 +1213,3 @@ extension NameSpaceWrapper where Base: NSMutableAttributedString {
     }
     
 }
-

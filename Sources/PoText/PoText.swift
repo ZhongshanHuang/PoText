@@ -9,7 +9,9 @@ public struct PoTextActionContext {
         guard let text,
               range.location != NSNotFound,
               range.location >= 0,
-              NSMaxRange(range) <= text.length else {
+              range.length >= 0,
+              range.location <= text.length,
+              range.length <= text.length - range.location else {
             return nil
         }
         return text.attributedSubstring(from: range)
@@ -36,7 +38,8 @@ public enum PoTextStyleMergePolicy: Sendable {
 public struct PoTextStyle: @unchecked Sendable {
     private var container: PoAttributeContainer
 
-    var attributeContainer: PoAttributeContainer {
+    /// The typed container backing this style.
+    public var attributeContainer: PoAttributeContainer {
         container
     }
 
@@ -60,13 +63,44 @@ public struct PoTextStyle: @unchecked Sendable {
         container = PoAttributeContainer(attributes)
     }
 
-    init(_ container: PoAttributeContainer) {
+    public init(_ container: PoAttributeContainer) {
         self.container = container
+    }
+
+    public init(attributeContainer: PoAttributeContainer) {
+        self.container = attributeContainer
+    }
+
+    /// A dynamic-type body style using the system label color.
+    public static var body: Self {
+        Self(font: .preferredFont(forTextStyle: .body), color: .label)
+    }
+
+    /// A dynamic-type headline style using the system label color.
+    public static var headline: Self {
+        Self(font: .preferredFont(forTextStyle: .headline), color: .label)
+    }
+
+    /// A dynamic-type caption style using the system secondary label color.
+    public static var caption: Self {
+        Self(font: .preferredFont(forTextStyle: .caption1), color: .secondaryLabel)
     }
 
     public func addingAttributes(_ attributes: [NSAttributedString.Key: Any]) -> Self {
         var new = self
         new.container.merge(PoAttributeContainer(attributes))
+        return new
+    }
+
+    /// Returns a copy with attributes from another style taking precedence.
+    public func adding(_ style: PoTextStyle) -> Self {
+        addingAttributes(style.attributes)
+    }
+
+    /// Returns a copy without the supplied attribute key.
+    public func removingAttribute(_ key: NSAttributedString.Key) -> Self {
+        var new = self
+        new.container = new.container.removingAttribute(key)
         return new
     }
 
@@ -116,6 +150,27 @@ public struct PoTextStyle: @unchecked Sendable {
         setting { $0.paragraphStyle = paragraphStyle }
     }
 
+    public func lineSpacing(_ spacing: CGFloat) -> Self {
+        settingParagraphStyle { $0.lineSpacing = spacing }
+    }
+
+    public func alignment(_ alignment: NSTextAlignment) -> Self {
+        settingParagraphStyle { $0.alignment = alignment }
+    }
+
+    public func lineBreak(_ mode: NSLineBreakMode) -> Self {
+        settingParagraphStyle { $0.lineBreakMode = mode }
+    }
+
+    public func stroke(width: CGFloat?, color: UIColor? = nil) -> Self {
+        setting {
+            $0.strokeWidth = width
+            if let color {
+                $0.strokeColor = color
+            }
+        }
+    }
+
     public func textBorder(_ border: TextBorder) -> Self {
         setting { $0.textBorder = border }
     }
@@ -129,25 +184,68 @@ public struct PoTextStyle: @unchecked Sendable {
         update(&new.container)
         return new
     }
+
+    private func settingParagraphStyle(_ update: (NSMutableParagraphStyle) -> Void) -> Self {
+        var new = self
+        let paragraphStyle = (new.container.paragraphStyle?.mutableCopy() as? NSMutableParagraphStyle)
+            ?? (NSParagraphStyle.default.mutableCopy() as? NSMutableParagraphStyle)
+            ?? NSMutableParagraphStyle()
+        update(paragraphStyle)
+        new.container.paragraphStyle = paragraphStyle
+        return new
+    }
 }
 
-public struct PoText: @unchecked Sendable {
+public struct PoText: @unchecked Sendable, CustomStringConvertible {
     private let storage: NSMutableAttributedString
 
     public var attributedString: NSAttributedString {
         storage.copy() as? NSAttributedString ?? NSAttributedString()
     }
 
+    /// Bridges to Swift's native ``AttributedString``.
+    public var swiftAttributedString: AttributedString {
+        AttributedString(attributedString)
+    }
+
+    /// The plain string represented by this value.
+    public var string: String { storage.string }
+
+    /// The UTF-16 length used by Foundation ranges.
+    public var length: Int { storage.length }
+
+    public var description: String { string }
+
     public var mutableAttributedString: NSMutableAttributedString {
         NSMutableAttributedString(attributedString: storage)
     }
 
-    public init(_ string: String) {
-        storage = NSMutableAttributedString(string: string)
+    public init(_ string: String, attributes: [NSAttributedString.Key: Any]? = nil) {
+        storage = NSMutableAttributedString(string: string, attributes: attributes)
+    }
+
+    /// Creates an unstyled rich-text value from a string.
+    public init(string: String) {
+        self.init(string)
+    }
+
+    /// Creates a rich-text value from a string and Foundation attributes.
+    public init(string: String, attributes: [NSAttributedString.Key: Any]? = nil) {
+        storage = NSMutableAttributedString(string: string, attributes: attributes)
     }
 
     public init(_ attributedString: NSAttributedString) {
         storage = NSMutableAttributedString(attributedString: attributedString)
+    }
+
+    /// Creates a rich-text value from an attributed string.
+    public init(attributedString: NSAttributedString) {
+        self.init(attributedString)
+    }
+
+    /// Creates a rich-text value from Swift's native ``AttributedString``.
+    public init(_ attributedString: AttributedString) {
+        self.init(NSAttributedString(attributedString))
     }
 
     public init(style: PoTextStyle,
@@ -162,7 +260,15 @@ public struct PoText: @unchecked Sendable {
         storage.po.addAttributes(style.attributes)
     }
 
-    init(storage: NSMutableAttributedString) {
+    /// Creates a rich-text value from a string and reusable style.
+    public init(string: String,
+                style: PoTextStyle,
+                mergePolicy: PoTextStyleMergePolicy = .keepLocal) {
+        storage = NSMutableAttributedString(string: string)
+        storage.po_applyStyle(style, mergePolicy: mergePolicy)
+    }
+
+    private init(storage: NSMutableAttributedString) {
         self.storage = storage
     }
 
@@ -170,12 +276,50 @@ public struct PoText: @unchecked Sendable {
         attributes(style.attributes)
     }
 
-    func attributeContainer(_ container: PoAttributeContainer) -> Self {
+    public func attributeContainer(_ container: PoAttributeContainer) -> Self {
         attributes(container.attributes)
     }
 
     public func attributes(_ attributes: [NSAttributedString.Key: Any]) -> Self {
         applying { $0.po.addAttributes(attributes) }
+    }
+
+    public func attributes(_ container: PoAttributeContainer) -> Self {
+        attributes(container.attributes)
+    }
+
+    /// Returns a copy with the supplied attributes taking precedence.
+    public func addingAttributes(_ attributes: [NSAttributedString.Key: Any]) -> Self {
+        self.attributes(attributes)
+    }
+
+    /// Returns a copy without the supplied attribute key.
+    public func removingAttribute(_ key: NSAttributedString.Key) -> Self {
+        applying { $0.po.addAttribute(key, value: nil) }
+    }
+
+    /// Returns a copy with a string appended without inheriting discontinuous
+    /// interaction attributes from the preceding fragment.
+    public func appending(_ string: String) -> Self {
+        applying { text in
+            let insertionRange = NSRange(location: text.length, length: string.utf16.count)
+            text.replaceCharacters(in: NSRange(location: text.length, length: 0), with: string)
+            if insertionRange.length > 0 {
+                text.po.removeDiscontinuousAttributes(in: insertionRange)
+            }
+        }
+    }
+
+    /// Returns a copy with another rich-text fragment appended.
+    public func appending(_ text: PoText) -> Self {
+        appending(text.attributedString)
+    }
+
+    /// Returns a copy with an attributed string appended.
+    public func appending(_ attributedString: NSAttributedString) -> Self {
+        applying { text in
+            text.append(attributedString)
+        }
     }
 
     public func font(_ font: UIFont?) -> Self {
@@ -416,114 +560,20 @@ public struct PoText: @unchecked Sendable {
     }
 }
 
+extension PoText: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+}
+
+extension PoAttributedString: ExpressibleByStringLiteral {
+    public init(stringLiteral value: String) {
+        self.init(value)
+    }
+}
+
 extension NameSpaceWrapper where Base == String {
     public var text: PoText {
         PoText(base)
-    }
-}
-
-extension PoLabel {
-    public convenience init(_ text: String, frame: CGRect = .zero) {
-        self.init(frame: frame)
-        self.text = text
-    }
-
-    public convenience init(_ attributedText: NSAttributedString, frame: CGRect = .zero) {
-        self.init(frame: frame)
-        self.attributedText = attributedText
-    }
-
-    convenience init(frame: CGRect = .zero,
-                     attributeContainer: PoAttributeContainer? = nil,
-                     @PoTextBuilder _ builder: () -> NSAttributedString) {
-        self.init(frame: frame)
-        setText(attributeContainer: attributeContainer, builder)
-    }
-
-    func setText(attributeContainer: PoAttributeContainer? = nil,
-                 @PoTextBuilder _ builder: () -> NSAttributedString) {
-        attributedText = NSAttributedString(attributeContainer: attributeContainer, builder: builder)
-    }
-
-    public convenience init(frame: CGRect = .zero,
-                            style: PoTextStyle,
-                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
-                            @PoTextBuilder _ builder: () -> NSAttributedString) {
-        self.init(frame: frame)
-        setText(style: style, mergePolicy: mergePolicy, builder)
-    }
-
-    public func setText(style: PoTextStyle,
-                        mergePolicy: PoTextStyleMergePolicy = .keepLocal,
-                        @PoTextBuilder _ builder: () -> NSAttributedString) {
-        attributedText = NSAttributedString(style: style,
-                                            mergePolicy: mergePolicy) {
-            builder()
-        }
-    }
-
-    @discardableResult
-    public func lines(_ numberOfLines: Int) -> Self {
-        self.numberOfLines = numberOfLines
-        return self
-    }
-
-    @discardableResult
-    public func alignment(_ alignment: NSTextAlignment) -> Self {
-        textAlignment = alignment
-        return self
-    }
-
-    @discardableResult
-    public func verticalAlignment(_ alignment: TextVerticalAlignment) -> Self {
-        textVerticalAlignment = alignment
-        return self
-    }
-
-    @discardableResult
-    public func insets(_ insets: UIEdgeInsets) -> Self {
-        textContainerInsets = insets
-        return self
-    }
-
-    @discardableResult
-    public func lineBreak(_ mode: NSLineBreakMode) -> Self {
-        lineBreakMode = mode
-        return self
-    }
-
-    @discardableResult
-    public func asyncDisplay(_ isDisplayedAsynchronously: Bool) -> Self {
-        self.isDisplayedAsynchronously = isDisplayedAsynchronously
-        return self
-    }
-}
-
-extension NSMutableAttributedString {
-    func po_applyStyle(_ style: PoTextStyle, mergePolicy: PoTextStyleMergePolicy) {
-        po_applyAttributes(style.attributes, mergePolicy: mergePolicy)
-    }
-
-    func po_applyAttributes(_ attributes: [NSAttributedString.Key: Any], mergePolicy: PoTextStyleMergePolicy) {
-        guard length > 0, !attributes.isEmpty else { return }
-
-        switch mergePolicy {
-        case .keepLocal:
-            var updates: [(range: NSRange, attributes: [NSAttributedString.Key: Any])] = []
-            enumerateAttributes(in: allRange, options: []) { currentAttributes, range, _ in
-                var missingAttributes: [NSAttributedString.Key: Any] = [:]
-                for (key, value) in attributes where currentAttributes[key] == nil {
-                    missingAttributes[key] = value
-                }
-                if !missingAttributes.isEmpty {
-                    updates.append((range, missingAttributes))
-                }
-            }
-            for update in updates {
-                addAttributes(update.attributes, range: update.range)
-            }
-        case .overrideLocal:
-            addAttributes(attributes, range: allRange)
-        }
     }
 }

@@ -101,7 +101,7 @@ extension TextLayout {
         }
     }
 
-    /// blockBoder
+    /// Block border
     private func drawBlockBorder(in ctx: CGContext, at point: CGPoint, size: CGSize) {
         if blockBorderInfos.isEmpty { return }
 

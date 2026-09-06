@@ -3,52 +3,239 @@ import UIKit
 // MARK: - Text Lifecycle
 extension PoLabel {
 
+    private enum LayoutInvalidationReason {
+        case content
+        case geometry
+    }
+
+    struct PendingInvalidation: OptionSet {
+        let rawValue: UInt8
+
+        static let redraw = Self(rawValue: 1 << 0)
+        static let clearContents = Self(rawValue: 1 << 1)
+        static let intrinsicContentSize = Self(rawValue: 1 << 2)
+    }
+
+    func _performConfiguration(_ updates: () -> Void) {
+        _configurationDepth += 1
+        defer {
+            _configurationDepth -= 1
+            if _configurationDepth == 0 {
+                _flushPendingInvalidation()
+            }
+        }
+        updates()
+    }
+
+    private func _flushPendingInvalidation() {
+        let pending = _pendingInvalidation
+        _pendingInvalidation = []
+        if pending.contains(.clearContents) {
+            _clearContents()
+        }
+        if pending.contains(.redraw) {
+            layer.setNeedsDisplay()
+        }
+        if pending.contains(.intrinsicContentSize) {
+            invalidateIntrinsicContentSize()
+        }
+    }
+
     func _invalidateTextDisplay(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
-        _clearContentsIfNeeded()
-        _setLayoutNeedUpdate()
+        _invalidateLayout(for: .content)
+        if !isIgnoredCommonProperties {
+            _clearContentsIfNeeded()
+        }
         if endTouch { _endTouch() }
-        if invalidateIntrinsicContentSize { self.invalidateIntrinsicContentSize() }
+        if invalidateIntrinsicContentSize { _requestIntrinsicContentSizeInvalidation() }
+    }
+
+    /// Invalidates the label after its backing attributed string changed.
+    /// The public getter is cached, so it must be discarded together with the
+    /// measurement layout.
+    func _invalidateTextContent(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
+        _invalidateContentRevision()
+        if !isIgnoredCommonProperties {
+            _clearContentsIfNeeded()
+            _markRenderLayoutAsDirty(redraw: true)
+        }
+        if endTouch { _endTouch() }
+        if invalidateIntrinsicContentSize { _requestIntrinsicContentSizeInvalidation() }
+    }
+
+    func _invalidateTextContentIfNeeded(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
+        guard !_innerText.isEmpty else { return }
+        _invalidateTextContent(endTouch: endTouch,
+                               invalidateIntrinsicContentSize: invalidateIntrinsicContentSize)
+    }
+
+    /// Applies a render invalidation only when common-property rendering is
+    /// enabled. This keeps `textLayout` mode independent from the convenience
+    /// properties while still invalidating their measurement cache.
+    func _invalidateTextIfNeeded(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
+        guard !_innerText.isEmpty, !isIgnoredCommonProperties else { return }
+        _invalidateTextDisplay(endTouch: endTouch,
+                               invalidateIntrinsicContentSize: invalidateIntrinsicContentSize)
     }
 
     func _clearContentsIfNeeded() {
         if isDisplayedAsynchronously && isClearedContentsBeforeAsynchronouslyDisplay {
-            _clearContents()
+            if _configurationDepth > 0 {
+                _pendingInvalidation.insert(.clearContents)
+            } else {
+                _clearContents()
+            }
         }
     }
 
-    func _setLayoutNeedUpdate() {
+    func _setLayoutNeedUpdate(clearMeasurement: Bool = true, redraw: Bool = true) {
+        _invalidateLayout(for: clearMeasurement ? .content : .geometry, redraw: redraw)
+    }
+
+    private func _invalidateLayout(for reason: LayoutInvalidationReason, redraw: Bool = true) {
+        switch reason {
+        case .content:
+            _invalidateContentRevision()
+        case .geometry:
+            _geometryRevision &+= 1
+        }
+        _markRenderLayoutAsDirty(redraw: redraw)
+    }
+
+    private func _invalidateContentRevision() {
+        _layoutRevision &+= 1
+        _clearMeasurementLayout()
+        _attributedTextSnapshot = nil
+    }
+
+    private func _markRenderLayoutAsDirty(redraw: Bool) {
         _state.isLayoutNeedUpdate = true
         _clearInnerLayout()
-        _setLayoutNeedRedraw()
+        if redraw { _setLayoutNeedRedraw() }
     }
 
     func _setLayoutNeedRedraw() {
-        layer.setNeedsDisplay()
+        if _configurationDepth > 0 {
+            _pendingInvalidation.insert(.redraw)
+        } else {
+            layer.setNeedsDisplay()
+        }
+    }
+
+    func _requestIntrinsicContentSizeInvalidation() {
+        if _configurationDepth > 0 {
+            _pendingInvalidation.insert(.intrinsicContentSize)
+        } else {
+            invalidateIntrinsicContentSize()
+        }
     }
 
     func _clearInnerLayout() {
         _innerLayout = nil
     }
 
-    func _updateIfNeeded() {
-        if _state.isLayoutNeedUpdate {
-            _state.isLayoutNeedUpdate = false
-            _updateLayout()
+    func _clearMeasurementLayout() {
+        _measurementLayout = nil
+        _measurementLayoutWidth = nil
+        _measurementLayoutFittingSize = nil
+    }
+
+    /// Updates the render container for a frame/bounds change. Keeping this in
+    /// one place prevents the two UIView overrides from drifting apart.
+    func _handleGeometryChange(to size: CGSize) {
+        let oldContainerSize = _innerContainer.size
+        let adoptedMeasurement = _adoptMeasurementLayoutIfPossible(for: size)
+        _innerContainer.size = size
+
+        if !adoptedMeasurement,
+           oldContainerSize != _innerContainer.size,
+           !isIgnoredCommonProperties {
+            _setLayoutNeedUpdate(clearMeasurement: false, redraw: false)
         }
+
+        _clearContentsIfNeeded()
+        _setLayoutNeedRedraw()
+    }
+
+    func _updateIfNeeded() {
+        guard !isIgnoredCommonProperties else { return }
+        guard _state.isLayoutNeedUpdate || (_innerLayout == nil && !_innerText.isEmpty) else { return }
+        _state.isLayoutNeedUpdate = false
+        _updateLayout()
     }
 
     func _updateLayout() {
         _innerLayout = TextLayout(attributedString: _innerText, container: _innerContainer)
     }
 
+    /// Builds and caches a measurement-only layout for the requested width.
+    /// The render layout and its container are left untouched, so Auto Layout
+    /// can ask for a size repeatedly without replacing the displayed layout.
+    func _measurementLayout(forProposedWidth proposedWidth: CGFloat) -> TextLayout? {
+        guard !_innerText.isEmpty else { return nil }
+
+        let requestedWidth: CGFloat
+        if preferredMaxLayoutWidth > 0, preferredMaxLayoutWidth.isFinite {
+            requestedWidth = preferredMaxLayoutWidth
+        } else if proposedWidth > 0, proposedWidth.isFinite {
+            requestedWidth = proposedWidth
+        } else {
+            requestedWidth = TextContainer.maxSize.width
+        }
+
+        var measurementContainer = _innerContainer
+        measurementContainer.size = CGSize(width: requestedWidth, height: TextContainer.maxSize.height)
+        let width = measurementContainer.size.width
+        if let cachedLayout = _measurementLayout,
+           _measurementLayoutWidth == width,
+           _measurementLayoutRevision == _layoutRevision {
+            _measurementGeometryRevision = _geometryRevision
+            return cachedLayout
+        }
+
+        let layout = TextLayout(attributedString: _innerText, container: measurementContainer)
+        _measurementLayout = layout
+        _measurementLayoutWidth = width
+        _measurementLayoutFittingSize = layout.suggestedFitsSize()
+        _measurementLayoutRevision = _layoutRevision
+        _measurementGeometryRevision = _geometryRevision
+        return layout
+    }
+
+    /// Reuses a fresh measurement when UIKit applies the exact size returned
+    /// by `sizeThatFits`/`intrinsicContentSize` (the usual `sizeToFit` path).
+    /// Any intervening content or geometry change makes the candidate invalid.
+    @discardableResult
+    func _adoptMeasurementLayoutIfPossible(for size: CGSize) -> Bool {
+        guard !isIgnoredCommonProperties,
+              !_innerText.isEmpty,
+              let measurementLayout = _measurementLayout,
+              let fittingSize = _measurementLayoutFittingSize,
+              _measurementLayoutRevision == _layoutRevision,
+              _measurementGeometryRevision == _geometryRevision,
+              fittingSize.width == measurementLayout.container.size.width,
+              size == fittingSize else {
+            return false
+        }
+
+        _innerLayout = measurementLayout
+        _innerContainer.size = size
+        _state.isLayoutNeedUpdate = false
+        _clearMeasurementLayout()
+        _geometryRevision &+= 1
+        return true
+    }
+
     func _syncContainerSizeWithBoundsIfNeeded() {
         let boundsSize = bounds.size
         if _innerContainer.size == boundsSize { return }
 
+        let oldContainerSize = _innerContainer.size
         _innerContainer.size = boundsSize
-        if !isIgnoredCommonProperties {
-            _state.isLayoutNeedUpdate = true
-            _clearInnerLayout()
+        if oldContainerSize != _innerContainer.size && !isIgnoredCommonProperties {
+            // A bounds change invalidates the render layout, but a measurement
+            // cached for another width is still valid and can be reused.
+            _setLayoutNeedUpdate(clearMeasurement: false, redraw: false)
         }
     }
 
@@ -73,7 +260,7 @@ extension PoLabel {
 
     func _updateOuterTextProperties() {
         _font = _innerText.po.font ?? UIFont.systemFont(ofSize: 17)
-        _textColor = _innerText.po.foregroundColor ?? UIColor.black
+        _textColor = _innerText.po.foregroundColor ?? .label
         if !_innerText.isEmpty {
             _textAlignment = _innerText.po.alignment
             _lineBreakMode = _innerText.po.lineBreakMode
@@ -83,6 +270,7 @@ extension PoLabel {
         _shadowOffset = shadow?.shadowOffset ?? .zero
         _shadowBlurRadius = shadow?.shadowBlurRadius ?? -1
         _updateOuterLineBreakMode()
+        _attributedTextSnapshot = nil
     }
 
     func _updateOuterContainerProperties() {
@@ -108,11 +296,6 @@ extension PoLabel {
         var isLayoutNeedUpdate: Bool {
             get { contains(.isLayoutNeedUpdate) }
             set { if newValue { insert(.isLayoutNeedUpdate) } else { remove(.isLayoutNeedUpdate) } }
-        }
-        static let updatedSizeThatFits = State(rawValue: 1 << 1)
-        var updatedSizeThatFits: Bool {
-            get { contains(.updatedSizeThatFits) }
-            set { if newValue { insert(.updatedSizeThatFits) } else { remove(.updatedSizeThatFits) } }
         }
         static let showHighlight = State(rawValue: 1 << 2)
         var showHighlight: Bool {

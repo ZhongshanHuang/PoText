@@ -25,7 +25,7 @@ extension TextLayout {
             set { if newValue { insert(.isNeedDrawAttachment) } else { remove(.isNeedDrawAttachment) } }
         }
         
-        /// Has highlight attibute
+        /// Has highlight attribute
         public static let isContainsHighlight = State(rawValue: 1 << 0)
         /// Has block border attribute
         public static let isNeedDrawBlockBorder = State(rawValue: 1 << 1)

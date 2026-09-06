@@ -264,7 +264,7 @@ public typealias TextAction = (_ containerView: PoLabel, _ text: NSAttributedStr
 
 // MARK: - TextVerticalAlignment
 
-public enum TextVerticalAlignment: Sendable {
+public enum TextVerticalAlignment: CaseIterable, Sendable {
     case top
     case center
     case bottom
@@ -279,4 +279,7 @@ public struct TextToken: RawRepresentable, Sendable {
 
 //    public static let attachment: TextToken = TextToken(rawValue: String(UnicodeScalar(0xFFFC)!)) // 空白占位符,16进制
     public static let truncation: TextToken = TextToken(rawValue: String(unicodeScalarLiteral: "\u{2026}")) // 省略号… ，16进制
+
+    /// A Foundation-style alias for the default truncation token.
+    public static let ellipsis: TextToken = .truncation
 }

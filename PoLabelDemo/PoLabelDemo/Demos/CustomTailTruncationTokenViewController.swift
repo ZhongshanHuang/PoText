@@ -65,11 +65,7 @@ class CustomTailTruncationTokenViewController: ExampleBaseViewController {
 
         let titleLabel = UILabel()
         titleLabel.font = UIFont.systemFont(ofSize: 14, weight: .semibold)
-        if #available(iOS 13.0, *) {
-            titleLabel.textColor = .secondaryLabel
-        } else {
-            titleLabel.textColor = .darkGray
-        }
+        titleLabel.textColor = .secondaryLabel
         titleLabel.text = title
 
         let label = PoLabel(exampleText(font: font))
