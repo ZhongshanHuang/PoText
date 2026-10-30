@@ -104,7 +104,10 @@ extension TextLayout {
     }
 }
 
+/// Public layouts finish their metadata before publication. Drawing, hit
+/// testing, and the initial attributed-string snapshot serialize TextKit access.
 public final class TextLayout: @unchecked Sendable {
+    let textKitLock = NSLock()
     private(set) var state: State = State()
 
     private var attributedStringSnapshot: NSAttributedString?
@@ -113,7 +116,9 @@ public final class TextLayout: @unchecked Sendable {
         attributedStringSnapshotLock.lock()
         defer { attributedStringSnapshotLock.unlock() }
         if let attributedStringSnapshot { return attributedStringSnapshot }
-        let snapshot = textStorage.copy() as? NSAttributedString ?? NSAttributedString(attributedString: textStorage)
+        textKitLock.lock()
+        defer { textKitLock.unlock() }
+        let snapshot = NSAttributedString(attributedString: textStorage)
         attributedStringSnapshot = snapshot
         return snapshot
     }
@@ -136,7 +141,17 @@ public final class TextLayout: @unchecked Sendable {
     var borderInfos: [TextBorder: [CGRect]] = [:]
     var blockBorderInfos: [TextBorder: [CGRect]] = [:]
     
-    public init(attributedString: NSAttributedString, container: TextContainer) {
+    private var isDrawingPrepared = false
+
+    public convenience init(attributedString: NSAttributedString, container: TextContainer) {
+        self.init(attributedString: attributedString, container: container, preparesDrawing: true)
+    }
+
+    static func measurementLayout(attributedString: NSAttributedString, container: TextContainer) -> TextLayout {
+        TextLayout(attributedString: attributedString, container: container, preparesDrawing: false)
+    }
+
+    private init(attributedString: NSAttributedString, container: TextContainer, preparesDrawing: Bool) {
         let container = container.snapshot()
         self.textStorage = NSTextStorage()
         self.container = container
@@ -168,6 +183,15 @@ public final class TextLayout: @unchecked Sendable {
         
         textBoundingSize = layoutManager.usedRect(for: textContainer).size
         
+        if preparesDrawing { prepareForDrawing() }
+    }
+
+    /// A measurement candidate is private to the label until promotion. Finish
+    /// its drawing metadata before publishing it as a reusable render layout.
+    func prepareForDrawing() {
+        guard !isDrawingPrepared else { return }
+        isDrawingPrepared = true
+        guard visibleCharacterRange.location != NSNotFound, visibleCharacterRange.length > 0 else { return }
         let attributeRuns = collectAttributeRuns(in: visibleCharacterRange)
         
         // line
@@ -184,6 +208,8 @@ public final class TextLayout: @unchecked Sendable {
     
     /// 点击位置的字符index
     public func textPositionForPoint(_ point: CGPoint) -> Int? {
+        textKitLock.lock()
+        defer { textKitLock.unlock() }
         var fractionOfDistance: CGFloat = 0
         let index = layoutManager.characterIndex(for: point, in: textContainer, fractionOfDistanceBetweenInsertionPoints: &fractionOfDistance)
         if fractionOfDistance > 0 && fractionOfDistance < 1 {

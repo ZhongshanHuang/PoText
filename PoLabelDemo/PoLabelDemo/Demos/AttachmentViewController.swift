@@ -115,7 +115,8 @@ class AttachmentViewController: ExampleBaseViewController {
             "This is UIView attachment:"
 
             let switcher = makeSwitch()
-            PoText.attachment(switcher, size: switcher.frame.size, alignToFont: font, verticalAlignment: .center)
+            // Reserve the fitted bounds; native control sizes vary across iOS versions.
+            PoText.attachment(switcher, alignToFont: font, verticalAlignment: .center)
 
             "\n"
 

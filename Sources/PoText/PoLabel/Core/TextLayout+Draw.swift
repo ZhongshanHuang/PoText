@@ -14,6 +14,9 @@ extension TextLayout {
 
     /// 对外绘制接口（可以异步）
     public func draw(in ctx: CGContext, at point: CGPoint, size: CGSize) {
+        textKitLock.lock()
+        defer { textKitLock.unlock() }
+        guard !Task.isCancelled else { return }
         if state.isNeedDrawBlockBorder {
             drawBlockBorder(in: ctx, at: point, size: size)
         }
@@ -22,7 +25,9 @@ extension TextLayout {
             drawBorder(in: ctx, at: point, size: size)
         }
 
+        guard !Task.isCancelled else { return }
         drawImageAttachments(in: ctx, at: point, size: size)
+        guard !Task.isCancelled else { return }
         layoutManager.drawGlyphs(forGlyphRange: visibleGlyphRange, at: point)
     }
 
@@ -61,6 +66,7 @@ extension TextLayout {
         if !state.isNeedDrawAttachment || imageAttachmentInfos.isEmpty { return }
 
         for info in imageAttachmentInfos {
+            guard !Task.isCancelled else { return }
             let attachment = info.attachment
             let proposedRect = info.proposedRect
             if case .image(let image) = attachment.content {

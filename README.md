@@ -5,6 +5,9 @@ Foundation's `NSAttributedString` as the output type.
 
 Requires iOS 15 or later.
 
+See [rendering architecture](Docs/Rendering.md) for concurrency ownership,
+measurement reuse, attachment sizing, and feature1 performance comparisons.
+
 ## API Style
 
 Use the named initializers when creating a label and configure it with UIKit
@@ -106,6 +109,16 @@ let imageText = NSAttributedString {
     "Icon "
     PoText.attachment(UIImage(named: "icon")!, size: CGSize(width: 16, height: 16))
 }
+```
+
+Fit native controls before creating their attachments, and omit `size:` to
+reserve their current bounds. Control dimensions can change between iOS versions;
+a historical fixed size may reserve less space than the control actually uses.
+
+```swift
+let toggle = UISwitch()
+toggle.sizeToFit()
+let controlText = PoText.attachment(toggle, alignToFont: .systemFont(ofSize: 16))
 ```
 
 The older global `PoLink`, `PoAttachment`, and `PoTag` functions remain

@@ -126,12 +126,12 @@ func labelMeasurementQueriesReuseCacheAndKeepRenderLayout() {
     let renderContainerSize = label._innerContainer.size
 
     let firstSize = label.sizeThatFits(CGSize(width: 100, height: 200))
-    let measurementLayout = label._measurementLayout
+    let measuredSize = label._measurementLayoutFittingSize
     let secondSize = label.sizeThatFits(CGSize(width: 100, height: 200))
     let intrinsicSize = label.intrinsicContentSize
 
-    #expect(measurementLayout != nil)
-    #expect(label._measurementLayout === measurementLayout)
+    #expect(measuredSize != nil)
+    #expect(label._measurementLayoutFittingSize == measuredSize)
     #expect(firstSize == secondSize)
     #expect(intrinsicSize == firstSize)
     #expect(label._innerContainer.size == renderContainerSize)
@@ -155,6 +155,7 @@ func sizeToFitPromotesTheFreshMeasurementLayout() {
     let previousRenderLayout = label.textLayout
     let fittedSize = label.sizeThatFits(label.bounds.size)
     let measuredLayout = label._measurementLayout
+    #expect(measuredLayout?.imageAttachmentInfos.isEmpty == true)
     label.frame = CGRect(origin: label.frame.origin, size: fittedSize)
 
     #expect(previousRenderLayout != nil)
@@ -164,6 +165,7 @@ func sizeToFitPromotesTheFreshMeasurementLayout() {
     #expect(!label._state.isLayoutNeedUpdate)
     label.layer.display()
     #expect(label.textLayout === measuredLayout)
+    #expect(label.textLayout?.imageAttachmentInfos.count == 1)
 }
 
 @MainActor
@@ -181,7 +183,7 @@ func sizeToFitDoesNotReuseAWiderCenteredMeasurement() {
     label.frame = CGRect(origin: label.frame.origin, size: fittedSize)
     let renderLayout = label.textLayout
 
-    #expect(measuredLayout != nil)
+    #expect(measuredLayout == nil)
     #expect(renderLayout !== measuredLayout)
     #expect(renderLayout?.container.size.width == fittedSize.width)
 }
@@ -193,11 +195,11 @@ func repeatedSynchronousRenderPreparationReusesLayout() {
     label.isDisplayedAsynchronously = false
     label.text = "A synchronous display should prepare its layout only once."
 
-    let firstContext = label.asyncLayerPrepareForRenderContext()
-    let secondContext = label.asyncLayerPrepareForRenderContext()
+    let firstContext = label.asyncLayerPrepare(label.layer)
+    let secondContext = label.asyncLayerPrepare(label.layer)
 
-    #expect(firstContext.layout != nil)
-    #expect(secondContext.layout === firstContext.layout)
+    #expect(firstContext.cachedLayout != nil)
+    #expect(secondContext.cachedLayout === firstContext.cachedLayout)
 }
 
 @MainActor
@@ -210,13 +212,13 @@ func preferredMaxLayoutWidthInvalidatesOnlyMeasurementForNewWidth() {
     label.text = "A long string needs more than one line when its preferred width is narrow."
 
     let wideSize = label.sizeThatFits(CGSize(width: 220, height: 200))
-    let wideMeasurement = label._measurementLayout
+    let wideMeasurement = label._measurementLayoutFittingSize
     let renderLayout = label.textLayout
     label.preferredMaxLayoutWidth = 80
     let narrowSize = label.sizeThatFits(CGSize(width: 220, height: 200))
 
     #expect(wideMeasurement != nil)
-    #expect(label._measurementLayout !== wideMeasurement)
+    #expect(label._measurementLayoutFittingSize != wideMeasurement)
     #expect(narrowSize.height > wideSize.height)
     #expect(label.textLayout === renderLayout)
 }
@@ -298,8 +300,8 @@ func ignoredCommonPropertiesDoNotBuildACommonLayout() {
     label.isIgnoredCommonProperties = true
 
     #expect(label.textLayout == nil)
-    let context = label.asyncLayerPrepareForRenderContext()
-    #expect(context.layout == nil)
-    #expect(context.text.length == 0)
+    let context = label.asyncLayerPrepare(label.layer)
+    #expect(context.cachedLayout == nil)
+    #expect(context.snapshotText.length == 0)
     #expect(!context.hasRenderableContent)
 }

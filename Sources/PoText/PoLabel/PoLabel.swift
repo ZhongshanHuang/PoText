@@ -87,7 +87,7 @@ public final class PoLabel: UIView {
             if _textColor == newValue { return }
             _textColor = newValue
             _innerText.po.foregroundColor = newValue
-            _invalidateTextContentIfNeeded(endTouch: false)
+            _invalidateTextContentIfNeeded(endTouch: false, preservingMeasurement: true)
         }
     }
 
@@ -278,6 +278,7 @@ public final class PoLabel: UIView {
         didSet {
             guard oldValue != isDisplayedAsynchronously else { return }
             (layer as? PoAsyncLayer)?.isDisplayedAsynchronously = isDisplayedAsynchronously
+            _setLayoutNeedRedraw()
         }
     }
 
@@ -287,7 +288,7 @@ public final class PoLabel: UIView {
         set { isDisplayedAsynchronously = newValue }
     }
 
-    /// If the value is true, and the layer is rendered asynchronously, then it will set label.layer.contents to nil before display.
+    /// Clears the previous bitmap and hosted attachments before asynchronous display.
     public var isClearedContentsBeforeAsynchronouslyDisplay: Bool = true
 
     /// If true and the layer is rendered asynchronously, adds a fade animation when contents change.
@@ -303,6 +304,7 @@ public final class PoLabel: UIView {
             guard oldValue != isIgnoredCommonProperties else { return }
             if isIgnoredCommonProperties {
                 _endTouch()
+                _setLayoutNeedRedraw()
             } else {
                 _updateOuterTextProperties()
                 _updateOuterContainerProperties()
@@ -319,9 +321,8 @@ public final class PoLabel: UIView {
     var _attributedTextSnapshot: NSAttributedString?
     var _innerContainer: TextContainer = TextContainer()
     var _innerLayout: TextLayout?
-    /// Measurement layouts are independent from the layout used for rendering.
-    /// Keeping them separate prevents size queries from invalidating or replacing
-    /// the layout that is currently displayed.
+    /// Only exact-width measurement candidates retain a layout for sizeToFit.
+    /// Other measurement queries cache a scalar size, leaving rendering intact.
     var _measurementLayout: TextLayout?
     var _measurementLayoutWidth: CGFloat?
     var _measurementLayoutFittingSize: CGSize?
@@ -391,7 +392,7 @@ public final class PoLabel: UIView {
     public override func sizeThatFits(_ size: CGSize) -> CGSize {
         if isIgnoredCommonProperties { return _innerLayout?.suggestedFitsSize() ?? .zero }
 
-        return _measurementLayout(forProposedWidth: size.width)?.suggestedFitsSize() ?? .zero
+        return _measurementSize(forProposedWidth: size.width)
     }
 
     /// 只有在使用autolayout时才会调用此方法，否则就算调用invalidateIntrinsicContentSize也不会触发
@@ -399,7 +400,7 @@ public final class PoLabel: UIView {
         if isIgnoredCommonProperties { return _innerLayout?.suggestedFitsSize() ?? .zero }
 
         let proposedWidth = bounds.size.width > 0 ? bounds.size.width : TextContainer.maxSize.width
-        return _measurementLayout(forProposedWidth: proposedWidth)?.suggestedFitsSize() ?? .zero
+        return _measurementSize(forProposedWidth: proposedWidth)
     }
 
     public override func traitCollectionDidChange(_ previousTraitCollection: UITraitCollection?) {

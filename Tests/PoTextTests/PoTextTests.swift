@@ -462,10 +462,10 @@ import UIKit
     label._innerContainer.size = .zero
     label._state.isLayoutNeedUpdate = true
 
-    let context = label.asyncLayerPrepareForRenderContext()
-    let displayedText = context.resolveLayout()?.attributedString.string ?? ""
+    let context = label.asyncLayerPrepare(label.layer)
+    let displayedText = (try? PoTextRenderer.renderImmediately(context))?.layout?.attributedString.string ?? ""
 
-    #expect(context.container.size == label.bounds.size)
+    #expect(context.snapshotContainer.size == label.bounds.size)
     #expect(displayedText.contains(TextToken.truncation.rawValue))
     #expect(displayedText != TextToken.truncation.rawValue)
     #expect(displayedText.hasSuffix("END"))
@@ -637,20 +637,20 @@ import UIKit
     container.tailTruncationToken = token
     container.exclusionPaths = [path]
 
-    let context = PoAsyncLayerRenderContext(text: text,
+    let context = PoTextRenderRequest(text: text,
                                             container: container,
+                                            size: container.size, scale: 1,
                                             verticalAlignment: .center,
                                             contentsNeedFade: false,
-                                            fadeForAsync: false,
-                                            textContainerInsets: .zero)
+                                            fadeForAsync: false)
 
     text.mutableString.setString("after")
     token.mutableString.setString("changed")
     path.append(UIBezierPath(rect: CGRect(x: 10, y: 10, width: 10, height: 10)))
 
-    let copiedPath = context.container.exclusionPaths!.first!
-    #expect(context.text.string == "before")
-    #expect(context.container.tailTruncationToken?.string == "more")
+    let copiedPath = context.snapshotContainer.exclusionPaths!.first!
+    #expect(context.snapshotText.string == "before")
+    #expect(context.snapshotContainer.tailTruncationToken?.string == "more")
     #expect(copiedPath !== path)
     #expect(copiedPath.bounds == CGRect(x: 0, y: 0, width: 4, height: 4))
 }
@@ -662,10 +662,10 @@ import UIKit
     label.text = "reuse committed layout"
 
     let layout = label.textLayout
-    let context = label.asyncLayerPrepareForRenderContext()
+    let context = label.asyncLayerPrepare(label.layer)
 
-    #expect(context.layout === layout)
-    #expect(context.text.length == 0)
+    #expect(context.cachedLayout === layout)
+    #expect(context.snapshotText.length == 0)
     #expect(context.hasRenderableContent)
 }
 
@@ -677,10 +677,10 @@ import UIKit
 
     #expect(label._state.isLayoutNeedUpdate)
 
-    let context = label.asyncLayerPrepareForRenderContext()
+    let context = label.asyncLayerPrepare(label.layer)
 
-    #expect(context.layout != nil)
-    #expect(context.text.length == 0)
+    #expect(context.cachedLayout != nil)
+    #expect(context.snapshotText.length == 0)
     #expect(context.shouldCommitLayout)
     #expect(context.hasRenderableContent)
 }
@@ -692,10 +692,10 @@ import UIKit
     label.text = "reuse committed layout"
 
     let layout = label.textLayout
-    let context = label.asyncLayerPrepareForRenderContext()
+    let context = label.asyncLayerPrepare(label.layer)
 
-    #expect(context.layout === layout)
-    #expect(context.text.length == 0)
+    #expect(context.cachedLayout === layout)
+    #expect(context.snapshotText.length == 0)
     #expect(context.hasRenderableContent)
 }
 

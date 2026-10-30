@@ -91,6 +91,44 @@ final class PoTextPerformanceTests: XCTestCase {
         }
     }
 
+    @MainActor
+    func testColorChangesAndMeasurement() {
+        let label = PoLabel(frame: CGRect(x: 0, y: 0, width: 220, height: 50))
+        label.isDisplayedAsynchronously = false
+        label.numberOfLines = 0
+        label.text = String(repeating: "PoText wrapping text ", count: 80)
+        let proposal = CGSize(width: 220, height: 10_000)
+        _ = label.sizeThatFits(proposal)
+        measure(options: Self.measureOptions()) {
+            for index in 0..<100 {
+                label.textColor = index.isMultiple(of: 2) ? .red : .blue
+                _ = label.sizeThatFits(proposal)
+            }
+        }
+    }
+
+    @MainActor
+    func testDecoratedTextMeasurement() {
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 10, height: 10)).image { _ in }
+        let icon = PoText.attachment(image, size: CGSize(width: 10, height: 10)).attributedString
+        let text = NSMutableAttributedString()
+        for _ in 0..<40 {
+            text.append(NSAttributedString(string: "PoText wrapping text "))
+            text.append(icon)
+        }
+        text.po.setTextBorder(TextBorder(fillColor: .yellow), range: text.allRange)
+        text.po.setTextBlockBorder(TextBorder(fillColor: .blue), range: text.allRange)
+        let label = PoLabel()
+        label.isDisplayedAsynchronously = false
+        label.numberOfLines = 0
+        label.attributedText = text
+        measure(options: Self.measureOptions()) {
+            for index in 0..<25 {
+                _ = label.sizeThatFits(CGSize(width: index.isMultiple(of: 2) ? 200 : 220, height: 10_000))
+            }
+        }
+    }
+
     private static func measureOptions() -> XCTMeasureOptions {
         let options = XCTMeasureOptions()
         options.iterationCount = 8

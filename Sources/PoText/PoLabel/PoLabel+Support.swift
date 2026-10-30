@@ -51,10 +51,10 @@ extension PoLabel {
     }
 
     /// Invalidates the label after its backing attributed string changed.
-    /// The public getter is cached, so it must be discarded together with the
-    /// measurement layout.
-    func _invalidateTextContent(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
-        _invalidateContentRevision()
+    /// The cached public getter must be discarded. Paint-only changes can keep
+    /// measured geometry while discarding any candidate with stale attributes.
+    func _invalidateTextContent(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false, preservingMeasurement: Bool = false) {
+        _invalidateContentRevision(preservingMeasurement: preservingMeasurement)
         if !isIgnoredCommonProperties {
             _clearContentsIfNeeded()
             _markRenderLayoutAsDirty(redraw: true)
@@ -63,10 +63,11 @@ extension PoLabel {
         if invalidateIntrinsicContentSize { _requestIntrinsicContentSizeInvalidation() }
     }
 
-    func _invalidateTextContentIfNeeded(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false) {
+    func _invalidateTextContentIfNeeded(endTouch: Bool = true, invalidateIntrinsicContentSize: Bool = false, preservingMeasurement: Bool = false) {
         guard !_innerText.isEmpty else { return }
         _invalidateTextContent(endTouch: endTouch,
-                               invalidateIntrinsicContentSize: invalidateIntrinsicContentSize)
+                               invalidateIntrinsicContentSize: invalidateIntrinsicContentSize,
+                               preservingMeasurement: preservingMeasurement)
     }
 
     /// Applies a render invalidation only when common-property rendering is
@@ -102,9 +103,17 @@ extension PoLabel {
         _markRenderLayoutAsDirty(redraw: redraw)
     }
 
-    private func _invalidateContentRevision() {
+    private func _invalidateContentRevision(preservingMeasurement: Bool = false) {
+        let hasValidMeasurement = _measurementLayoutFittingSize != nil &&
+            _measurementLayoutRevision == _layoutRevision
         _layoutRevision &+= 1
-        _clearMeasurementLayout()
+        if preservingMeasurement && hasValidMeasurement {
+            // Keep geometry, but never promote a candidate with stale colors.
+            _measurementLayout = nil
+            _measurementLayoutRevision = _layoutRevision
+        } else {
+            _clearMeasurementLayout()
+        }
         _attributedTextSnapshot = nil
     }
 
@@ -168,11 +177,10 @@ extension PoLabel {
         _innerLayout = TextLayout(attributedString: _innerText, container: _innerContainer)
     }
 
-    /// Builds and caches a measurement-only layout for the requested width.
-    /// The render layout and its container are left untouched, so Auto Layout
-    /// can ask for a size repeatedly without replacing the displayed layout.
-    func _measurementLayout(forProposedWidth proposedWidth: CGFloat) -> TextLayout? {
-        guard !_innerText.isEmpty else { return nil }
+    /// Caches a size without preparing drawing metadata. Only exact-width
+    /// candidates keep their TextKit graph for the existing sizeToFit promotion.
+    func _measurementSize(forProposedWidth proposedWidth: CGFloat) -> CGSize {
+        guard !_innerText.isEmpty else { return .zero }
 
         let requestedWidth: CGFloat
         if preferredMaxLayoutWidth > 0, preferredMaxLayoutWidth.isFinite {
@@ -186,20 +194,23 @@ extension PoLabel {
         var measurementContainer = _innerContainer
         measurementContainer.size = CGSize(width: requestedWidth, height: TextContainer.maxSize.height)
         let width = measurementContainer.size.width
-        if let cachedLayout = _measurementLayout,
+        if let fittingSize = _measurementLayoutFittingSize,
            _measurementLayoutWidth == width,
            _measurementLayoutRevision == _layoutRevision {
             _measurementGeometryRevision = _geometryRevision
-            return cachedLayout
+            return fittingSize
         }
 
-        let layout = TextLayout(attributedString: _innerText, container: measurementContainer)
-        _measurementLayout = layout
-        _measurementLayoutWidth = width
-        _measurementLayoutFittingSize = layout.suggestedFitsSize()
-        _measurementLayoutRevision = _layoutRevision
-        _measurementGeometryRevision = _geometryRevision
-        return layout
+        return autoreleasepool {
+            let layout = TextLayout.measurementLayout(attributedString: _innerText, container: measurementContainer)
+            let size = layout.suggestedFitsSize()
+            _measurementLayout = size.width == width ? layout : nil
+            _measurementLayoutWidth = width
+            _measurementLayoutFittingSize = size
+            _measurementLayoutRevision = _layoutRevision
+            _measurementGeometryRevision = _geometryRevision
+            return size
+        }
     }
 
     /// Reuses a fresh measurement when UIKit applies the exact size returned
@@ -218,6 +229,7 @@ extension PoLabel {
             return false
         }
 
+        measurementLayout.prepareForDrawing()
         _innerLayout = measurementLayout
         _innerContainer.size = size
         _state.isLayoutNeedUpdate = false
@@ -240,8 +252,13 @@ extension PoLabel {
     }
 
     func _clearContents() {
-        if layer.contents == nil { return }
         layer.contents = nil
+        for view in _attachmentViews where view.superview === self { view.removeFromSuperview() }
+        for attachmentLayer in _attachmentLayers where attachmentLayer.superlayer === layer {
+            attachmentLayer.removeFromSuperlayer()
+        }
+        _attachmentViews.removeAll(keepingCapacity: true)
+        _attachmentLayers.removeAll(keepingCapacity: true)
     }
 
 }
