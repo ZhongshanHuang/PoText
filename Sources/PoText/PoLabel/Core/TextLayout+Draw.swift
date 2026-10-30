@@ -219,14 +219,6 @@ extension TextLayout {
         return nil
     }
 
-    func isInLastLine(for characterIndex: Int) -> Bool {
-        if let lastLine = lineInfos.last,
-            characterIndex >= lastLine.characterRange.location && characterIndex < lastLine.characterRange.upperBound {
-            return true
-        }
-        return false
-    }
-
 }
 
 enum TextDrawIMP {

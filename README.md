@@ -14,7 +14,7 @@ property names when that reads better for your code:
 let label = PoLabel(text: "Hello")
     .numberOfLines(0)
     .textAlignment(.center)
-    .textInsets(.init(top: 4, left: 8, bottom: 4, right: 8))
+    .textContainerInsets(.init(top: 4, left: 8, bottom: 4, right: 8))
 ```
 
 For several UIKit-style changes, `configure` coalesces rendering and
@@ -27,6 +27,10 @@ let label = PoLabel().configure { label in
     label.textAlignment = .center
 }
 ```
+
+Use `PoText` for text fragments, `PoTextStyle` for reusable styles, and
+`PoLabel` for display. UIKit property names are the preferred configuration
+spelling; the shorter aliases remain available for compatibility.
 
 `PoText` and `PoAttributeContainer` are value types. Styling or appending a
 value returns a new value, so a reusable base fragment can safely be shared:
@@ -51,12 +55,15 @@ let label = PoLabel(style: bodyStyle) {
         .font(.boldSystemFont(ofSize: 18))
     "!"
 }
-.lines(0)
-.alignment(.center)
+.numberOfLines(0)
+.textAlignment(.center)
 ```
 
-`style:` is applied as a base style. Local attributes keep priority by default.
+`style:` and `attributeContainer:` are applied as base attributes. Local
+attributes keep priority by default.
 Use `mergePolicy: .overrideLocal` when the base style should replace local attributes.
+Existing code that relied on `attributeContainer:` overriding local attributes
+should explicitly pass `.overrideLocal`.
 
 The builder also accepts `String`, `Substring`, optional text fragments,
 `NSAttributedString`, and Swift's native `AttributedString` directly. Use
@@ -77,6 +84,11 @@ let text = NSAttributedString(attributeContainer: attributes) { "Inbox" }
 ```
 
 ## Highlights
+
+Appending a plain `String` preserves visual styling but clears inherited
+actions, links, attachments, and backed strings from the appended range.
+Assigning `PoLabel.text` also clears these attributes, including when the new
+string equals the previous text.
 
 ```swift
 let text = NSAttributedString {

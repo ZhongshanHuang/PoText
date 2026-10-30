@@ -229,24 +229,23 @@ public final class TextLayout: @unchecked Sendable {
 
         for attributeRun in attributeRuns {
             guard let attachment = attributeRun.attachment else { continue }
-            let range = attributeRun.range
-            let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
-            var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
-            let location = layoutManager.location(forGlyphAt: glyphRange.location)
-            if !isInLastLine(for: range.location),
-                let paragraphStyle = textStorage.attribute(.paragraphStyle, at: range.location, effectiveRange: nil) as? NSParagraphStyle,
-               paragraphStyle.lineSpacing > .leastNonzeroMagnitude {
-                rect.size.height -= paragraphStyle.lineSpacing
-            }
-            rect.origin.y += location.y
-            rect.origin.y -= attachment.bounds.height
-            rect.size.height = attachment.bounds.height
-            let info = AttachmentDrawingInfo(attachment: attachment, proposedRect: rect)
-            switch attachment.content {
-            case .image:
-                imageAttachmentInfos.append(info)
-            case .view, .layer:
-                hostedAttachmentInfos.append(info)
+            // Foundation can coalesce adjacent occurrences of the same
+            // attachment into one attribute run. Each still needs its own rect.
+            for characterIndex in attributeRun.range.location..<attributeRun.range.upperBound {
+                let range = NSRange(location: characterIndex, length: 1)
+                let glyphRange = layoutManager.glyphRange(forCharacterRange: range, actualCharacterRange: nil)
+                guard glyphRange.location != NSNotFound, glyphRange.length > 0 else { continue }
+                var rect = layoutManager.boundingRect(forGlyphRange: glyphRange, in: textContainer)
+                let location = layoutManager.location(forGlyphAt: glyphRange.location)
+                rect.origin.y += location.y - attachment.bounds.height
+                rect.size.height = attachment.bounds.height
+                let info = AttachmentDrawingInfo(attachment: attachment, proposedRect: rect)
+                switch attachment.content {
+                case .image:
+                    imageAttachmentInfos.append(info)
+                case .view, .layer:
+                    hostedAttachmentInfos.append(info)
+                }
             }
         }
     }

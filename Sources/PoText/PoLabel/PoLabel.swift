@@ -16,7 +16,7 @@ public final class PoLabel: UIView {
         set {
             let newText = newValue ?? ""
             if _innerText.isEmpty && newText.isEmpty { return }
-            if !_innerText.isEmpty && _innerText.string == newText { return }
+            if !_innerText.isEmpty && _innerText.string == newText && !_innerText.po.hasDiscontinuousAttributes { return }
 
             let isNeededAddAttributes = _innerText.isEmpty && !newText.isEmpty
             _innerText.replaceCharacters(in: _innerText.allRange, with: newText)

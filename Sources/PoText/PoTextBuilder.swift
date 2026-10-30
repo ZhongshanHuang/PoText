@@ -92,11 +92,14 @@ extension NSAttributedString {
         AttributedString(self)
     }
 
+    /// Applies container attributes as defaults, preserving local attributes
+    /// unless `mergePolicy` is `.overrideLocal`.
     public convenience init(attributeContainer: PoAttributeContainer? = nil,
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
                             @PoTextBuilder builder: () -> NSAttributedString) {
         let result = NSMutableAttributedString(attributedString: builder())
-        if let attributeContainer, result.length > 0 {
-            result.addAttributes(attributeContainer.attributes, range: result.allRange)
+        if let attributeContainer {
+            result.po_applyAttributes(attributeContainer.attributes, mergePolicy: mergePolicy)
         }
         self.init(attributedString: result)
     }
@@ -120,11 +123,13 @@ extension NSAttributedString {
 
 extension NSMutableAttributedString {
 
+    /// Applies container attributes using the same precedence as `style:`.
     public convenience init(attributeContainer: PoAttributeContainer? = nil,
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
                             @PoTextBuilder mbuilder: () -> NSAttributedString) {
         self.init(attributedString: mbuilder())
-        if let attributeContainer, length > 0 {
-            self.addAttributes(attributeContainer.attributes, range: allRange)
+        if let attributeContainer {
+            po_applyAttributes(attributeContainer.attributes, mergePolicy: mergePolicy)
         }
     }
 

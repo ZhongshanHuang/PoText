@@ -35,14 +35,18 @@ extension PoLabel {
 
     public convenience init(frame: CGRect = .zero,
                             attributeContainer: PoAttributeContainer? = nil,
+                            mergePolicy: PoTextStyleMergePolicy = .keepLocal,
                             @PoTextBuilder _ builder: () -> NSAttributedString) {
         self.init(frame: frame)
-        setText(attributeContainer: attributeContainer, builder)
+        setText(attributeContainer: attributeContainer, mergePolicy: mergePolicy, builder)
     }
 
     public func setText(attributeContainer: PoAttributeContainer? = nil,
+                        mergePolicy: PoTextStyleMergePolicy = .keepLocal,
                         @PoTextBuilder _ builder: () -> NSAttributedString) {
-        attributedText = NSAttributedString(attributeContainer: attributeContainer, builder: builder)
+        attributedText = NSAttributedString(attributeContainer: attributeContainer,
+                                            mergePolicy: mergePolicy,
+                                            builder: builder)
     }
 
     public convenience init(frame: CGRect = .zero,

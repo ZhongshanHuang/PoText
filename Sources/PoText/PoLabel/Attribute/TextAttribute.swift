@@ -7,7 +7,11 @@ extension NSAttributedString.Key {
     public static let poBlockBorder      = NSAttributedString.Key(rawValue: "PoTextBlockBorder")
     public static let poHighlight        = NSAttributedString.Key(rawValue: "PoTextHighlight")
     
-    public static let allDiscontinuousAttributeKeys: [NSAttributedString.Key] = [.poBackedString]
+    /// Attributes tied to particular characters that must not transfer to new
+    /// plain text when inserting, appending, or replacing a label's content.
+    public static let allDiscontinuousAttributeKeys: [NSAttributedString.Key] = [
+        .attachment, .link, .poBackedString, .poHighlight
+    ]
 }
 
 // MARK: - TextLineStyle
